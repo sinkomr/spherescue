@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetrisphere Practice Environment</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+            font-family: 'Courier New', monospace;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            max-width: 300px;
+        }
+
+        #controls h2 {
+            margin-top: 0;
+            color: #00ff88;
+        }
+
+        #controls p {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+
+        #controls .key {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #00ff88;
+        }
+
+        button {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #00dd77;
+        }
+
+        button:active {
+            background: #00bb66;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div id="controls">
+        <h2>Shape Rotator</h2>
+        <p><span class="key">DRAG</span> to rotate camera</p>
+        <p><span class="key">SCROLL</span> to zoom in/out</p>
+        <p><span class="key">CLICK</span> on blocks to remove them</p>
+        <p><span class="key">ARROW KEYS</span> to rotate shape</p>
+        <p><span class="key">SPACE</span> to auto-rotate</p>
+        <button id="reset-btn">Reset Shape</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
