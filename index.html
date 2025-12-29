@@ -3,84 +3,445 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tetrisphere Practice Environment</title>
+    <title>Tetrisphere Emulator</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             overflow: hidden;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
-            font-family: 'Courier New', monospace;
+            background: #000;
+            font-family: 'Arial', sans-serif;
+            color: #fff;
         }
 
         #canvas-container {
             width: 100vw;
             height: 100vh;
+            position: relative;
         }
 
-        #controls {
+        /* HUD Overlay */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Score Panel */
+        #score-panel {
             position: absolute;
             top: 20px;
             left: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(20, 20, 60, 0.85));
             padding: 20px;
-            border-radius: 10px;
-            font-size: 14px;
-            max-width: 300px;
+            border-radius: 12px;
+            border: 2px solid #00ff88;
+            min-width: 250px;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
         }
 
-        #controls h2 {
-            margin-top: 0;
+        #score-panel h1 {
+            font-size: 24px;
+            margin-bottom: 15px;
             color: #00ff88;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
         }
 
-        #controls p {
+        .stat-line {
+            display: flex;
+            justify-content: space-between;
             margin: 8px 0;
-            line-height: 1.6;
+            font-size: 16px;
         }
 
-        #controls .key {
+        .stat-label {
+            color: #aaa;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .stat-value.highlight {
+            color: #00ff88;
+            text-shadow: 0 0 5px rgba(0, 255, 136, 0.5);
+        }
+
+        /* Core Progress Bar */
+        #core-progress {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #444;
+        }
+
+        #core-bar-container {
+            width: 100%;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            border: 2px solid #666;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #core-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0088, #ff8800, #ffff00);
+            width: 0%;
+            transition: width 0.3s;
+            box-shadow: 0 0 10px rgba(255, 136, 0, 0.5);
+        }
+
+        #core-label {
+            position: absolute;
+            top: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        /* Controls Panel */
+        #controls-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(20, 20, 60, 0.85));
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #0088ff;
+            max-width: 300px;
+            box-shadow: 0 0 20px rgba(0, 136, 255, 0.3);
+        }
+
+        #controls-panel h3 {
+            color: #0088ff;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .control-line {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .key {
             display: inline-block;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 2px 6px;
-            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 2px 8px;
+            border-radius: 4px;
             font-weight: bold;
             color: #00ff88;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        /* Game Status */
+        #game-status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px 60px;
+            border-radius: 20px;
+            border: 3px solid #00ff88;
+            text-align: center;
+            display: none;
+            pointer-events: all;
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.5);
+        }
+
+        #game-status h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #00ff88;
+            text-shadow: 0 0 20px rgba(0, 255, 136, 0.8);
+        }
+
+        #game-status p {
+            font-size: 20px;
+            margin: 15px 0;
+            color: #ccc;
         }
 
         button {
-            background: #00ff88;
+            background: linear-gradient(135deg, #00ff88, #00dd77);
             color: #000;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 15px 40px;
+            border-radius: 8px;
             cursor: pointer;
-            font-family: 'Courier New', monospace;
+            font-size: 18px;
             font-weight: bold;
-            margin-top: 10px;
-            width: 100%;
+            margin: 10px;
+            transition: all 0.3s;
+            pointer-events: all;
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
         }
 
         button:hover {
-            background: #00dd77;
+            background: linear-gradient(135deg, #00dd77, #00bb66);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.4);
         }
 
         button:active {
-            background: #00bb66;
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: linear-gradient(135deg, #0088ff, #0066dd);
+        }
+
+        button.secondary:hover {
+            background: linear-gradient(135deg, #0066dd, #0044bb);
+        }
+
+        /* Combo Display */
+        #combo-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #ffff00;
+            text-shadow: 0 0 20px rgba(255, 255, 0, 0.8),
+                         0 0 40px rgba(255, 136, 0, 0.6);
+            display: none;
+            pointer-events: none;
+            animation: comboPopup 1s ease-out;
+        }
+
+        @keyframes comboPopup {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+            }
+        }
+
+        /* Level Complete Effect */
+        #level-complete {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 64px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff0088, #00ff88, #0088ff, #ff8800);
+            background-size: 400% 400%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: none;
+            pointer-events: none;
+            animation: gradientShift 2s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Cursor Info */
+        #cursor-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(60, 20, 60, 0.85));
+            padding: 15px 20px;
+            border-radius: 12px;
+            border: 2px solid #ff0088;
+            box-shadow: 0 0 20px rgba(255, 0, 136, 0.3);
+            text-align: center;
+        }
+
+        #cursor-info h3 {
+            color: #ff0088;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        #selected-count {
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .block-type-indicator {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            margin: 5px;
+            border: 2px solid #fff;
+            border-radius: 4px;
+        }
+
+        /* Start Screen */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #2a1a4a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: all;
+        }
+
+        #start-screen h1 {
+            font-size: 72px;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #00ff88, #0088ff, #ff0088);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 3s ease infinite;
+        }
+
+        #start-screen p {
+            font-size: 24px;
+            color: #ccc;
+            margin: 10px 0;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .difficulty-buttons {
+            margin: 30px 0;
+        }
+
+        .features-list {
+            margin: 20px 0;
+            text-align: left;
+            color: #00ff88;
+        }
+
+        .features-list li {
+            margin: 8px 0;
+            font-size: 16px;
         }
     </style>
 </head>
 <body>
+    <!-- Start Screen -->
+    <div id="start-screen">
+        <h1>TETRISPHERE</h1>
+        <p>An accurate emulation of the classic N64 puzzle game</p>
+
+        <ul class="features-list">
+            <li>✓ Multi-layer sphere structure with depth progression</li>
+            <li>✓ Three block types (Square, Circle, Triangle) with matching</li>
+            <li>✓ Robot cursor with grid-based movement</li>
+            <li>✓ Drop mechanic - match 3+ blocks to eliminate them</li>
+            <li>✓ Gravity and cascade chain reactions</li>
+            <li>✓ Scoring system with combos and multipliers</li>
+            <li>✓ Slide blocks horizontally before dropping</li>
+            <li>✓ Power-ups (Bombs and Wildcards)</li>
+            <li>✓ Progressive difficulty levels</li>
+        </ul>
+
+        <div class="difficulty-buttons">
+            <button onclick="startGame('easy')">START - EASY</button>
+            <button onclick="startGame('medium')">START - MEDIUM</button>
+            <button onclick="startGame('hard')">START - HARD</button>
+        </div>
+    </div>
+
+    <!-- Game Canvas -->
     <div id="canvas-container"></div>
 
-    <div id="controls">
-        <h2>Shape Rotator</h2>
-        <p><span class="key">DRAG</span> to rotate camera</p>
-        <p><span class="key">SCROLL</span> to zoom in/out</p>
-        <p><span class="key">CLICK</span> on blocks to remove them</p>
-        <p><span class="key">ARROW KEYS</span> to rotate shape</p>
-        <p><span class="key">SPACE</span> to auto-rotate</p>
-        <button id="reset-btn">Reset Shape</button>
+    <!-- HUD Overlay -->
+    <div id="hud">
+        <!-- Score Panel -->
+        <div id="score-panel">
+            <h1>TETRISPHERE</h1>
+            <div class="stat-line">
+                <span class="stat-label">Score:</span>
+                <span class="stat-value highlight" id="score">0</span>
+            </div>
+            <div class="stat-line">
+                <span class="stat-label">Level:</span>
+                <span class="stat-value" id="level">1</span>
+            </div>
+            <div class="stat-line">
+                <span class="stat-label">Combo:</span>
+                <span class="stat-value highlight" id="combo">0x</span>
+            </div>
+            <div class="stat-line">
+                <span class="stat-label">Blocks:</span>
+                <span class="stat-value" id="blocks-remaining">0</span>
+            </div>
+            <div id="core-progress">
+                <div class="stat-line">
+                    <span class="stat-label">Core Progress:</span>
+                </div>
+                <div id="core-bar-container">
+                    <div id="core-bar"></div>
+                    <div id="core-label">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cursor Info -->
+        <div id="cursor-info">
+            <h3>Selected Blocks</h3>
+            <div id="selected-count">0</div>
+            <div id="block-type-display"></div>
+        </div>
+
+        <!-- Controls -->
+        <div id="controls-panel">
+            <h3>Controls</h3>
+            <div class="control-line"><span class="key">WASD</span> Move Cursor</div>
+            <div class="control-line"><span class="key">SPACE</span> Drop Blocks</div>
+            <div class="control-line"><span class="key">Q/E</span> Slide Left/Right</div>
+            <div class="control-line"><span class="key">ARROWS</span> Rotate View</div>
+            <div class="control-line"><span class="key">MOUSE</span> Drag to Rotate</div>
+            <div class="control-line"><span class="key">R</span> Reset Level</div>
+            <div class="control-line"><span class="key">P</span> Pause</div>
+        </div>
+
+        <!-- Combo Display -->
+        <div id="combo-display"></div>
+
+        <!-- Level Complete -->
+        <div id="level-complete">LEVEL COMPLETE!</div>
+
+        <!-- Game Status (Pause/Game Over) -->
+        <div id="game-status">
+            <h2 id="status-title">PAUSED</h2>
+            <p id="status-message"></p>
+            <button id="resume-btn" onclick="resumeGame()">RESUME</button>
+            <button class="secondary" id="restart-btn" onclick="restartGame()">RESTART</button>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
