@@ -41,9 +41,14 @@ class Game {
   loadProgress() {
     try {
       const p = JSON.parse(localStorage.getItem('sphererescue') || '{}');
-      return { rescueLevel: p.rescueLevel || 1, puzzleUnlocked: p.puzzleUnlocked || 0, puzzleDone: p.puzzleDone || [], highScore: p.highScore || 0 };
+      return {
+        rescueLevel: p.rescueLevel || 1,
+        puzzleUnlocked: p.puzzleUnlocked || 0, puzzleDone: p.puzzleDone || [],
+        freeUnlocked: p.freeUnlocked || 0, freeDone: p.freeDone || [],
+        highScore: p.highScore || 0,
+      };
     } catch (e) {
-      return { rescueLevel: 1, puzzleUnlocked: 0, puzzleDone: [], highScore: 0 };
+      return { rescueLevel: 1, puzzleUnlocked: 0, puzzleDone: [], freeUnlocked: 0, freeDone: [], highScore: 0 };
     }
   }
   saveProgress() {
@@ -83,6 +88,15 @@ class Game {
       this.drags = cfg.drags;
       this.drops = cfg.drops;
       this.cursor = { u: cfg.cursor ? cfg.cursor[0] : 16, v: cfg.cursor ? cfg.cursor[1] : 16 };
+    } else if (this.mode === 'freefable') {
+      const cfg = FREE_FABLE[this.puzzleIndex];
+      this.freeCfg = cfg;
+      this.levelCfg = {
+        types: cfg.types, wildChance: cfg.wild || 0.06, speedMax: cfg.speedMax,
+        sectionsRequired: cfg.sections, sealed: !!cfg.sealed, bias: cfg.bias,
+      };
+      buildFreeBoard(this.board, cfg);
+      this.cursor = { u: 16, v: 16 };
     } else {
       const lvl = this.mode === 'timetrial' ? 5 : this.progress.rescueLevel;
       this.levelCfg = rescueLevelCfg(lvl);
@@ -103,15 +117,22 @@ class Game {
     this.updateHud(true);
   }
 
-  spawnPiece() {
+  /** Queue draws gently favor types with playable surface presence, like a
+   *  modern bag randomizer — kills "dead piece" draws without feeling rigged. */
+  pickType() {
     const cfg = this.levelCfg;
-    while (this.queue.length < 3) {
-      const wild = Math.random() < cfg.wildChance;
-      this.queue.push(wild ? 'WILD' : cfg.types[(Math.random() * cfg.types.length) | 0]);
+    if (Math.random() < cfg.wildChance) return 'WILD';
+    if (Math.random() < (cfg.bias || 0.75)) {
+      const live = this.board.liveTypes(cfg.types);
+      if (live.length) return live[(Math.random() * live.length) | 0];
     }
+    return cfg.types[(Math.random() * cfg.types.length) | 0];
+  }
+
+  spawnPiece() {
+    while (this.queue.length < 3) this.queue.push(this.pickType());
     this.heldType = this.queue.shift();
-    const wild = Math.random() < cfg.wildChance;
-    this.queue.push(wild ? 'WILD' : cfg.types[(Math.random() * cfg.types.length) | 0]);
+    this.queue.push(this.pickType());
   }
 
   /** Shape the held piece currently presents (wild morphs through all). */
@@ -192,7 +213,7 @@ class Game {
       if (!p || !p.crystal || p.state !== 'resting') { allCrystal = false; break; }
       if (z0 === -1) z0 = p.z; else if (p.z !== z0) { allCrystal = false; break; }
     }
-    if (allCrystal && z0 >= 0) {
+    if (allCrystal && z0 >= 0 && !(this.levelCfg.sealed && z0 === 0)) {
       for (const [du, dv] of cells) this.board.removePiece(this.board.topPiece(u + du, v + dv));
       const np = new Piece(shape, u, v, z0);
       np.power = true;
@@ -393,7 +414,13 @@ class Game {
     if (sections > this.sectionsPrev) {
       const gained = sections - this.sectionsPrev;
       this.addScore(gained * (this.mode === 'timetrial' ? 3000 : 1000), false);
-      this.toast('CORE EXPOSED!');
+      // Free Fable: the freed energy mends you — sections restore hearts
+      if (this.mode === 'freefable' && this.hearts < 3) {
+        this.hearts = Math.min(3, this.hearts + gained);
+        this.toast('CORE EXPOSED! ♥ RESTORED');
+      } else {
+        this.toast('CORE EXPOSED!');
+      }
       this.audio.sfx('win');
     }
     this.sectionsPrev = sections;
@@ -444,6 +471,10 @@ class Game {
       }
     }
     this.magicItem = 0;
+    if (this.levelCfg.sealed) {
+      // magic fizzles against the shell around the core
+      for (const p of [...kill]) if (p.z === 0) kill.delete(p);
+    }
     if (!kill.size) { this.updateHud(); return; }
     this.audio.sfx('magic');
     this.toast('MAGIC!');
@@ -479,7 +510,14 @@ class Game {
       this.state = 'win';
       this.winT = 0;
       this.audio.sfx('win');
-      if (this.mode === 'rescue') {
+      if (this.mode === 'freefable') {
+        const cfg = this.freeCfg;
+        this.setMsg(`${cfg.short} FREED!`);
+        this.addScore(5000 + this.hearts * 2000, false);
+        this.progress.freeDone[this.puzzleIndex] = true;
+        this.progress.freeUnlocked = Math.max(this.progress.freeUnlocked, this.puzzleIndex + 1);
+        this.saveProgress();
+      } else if (this.mode === 'rescue') {
         this.setMsg('RESCUED!');
         this.addScore(5000 + this.hearts * 2000, false);
         this.progress.rescueLevel++;
@@ -550,12 +588,21 @@ class Game {
     } else if (this.state === 'win') {
       this.winT += dt;
       this.renderer.zoom = 1;
-      if (this.winT > 2.4) {
-        if (this.mode === 'rescue') {
-          this.setupLevel();
-          this.state = 'play';
-          this.setMsg('');
-        } else if (this.mode === 'timetrial') {
+      if (this.mode === 'freefable') {
+        // celebratory fireworks while the freed bot rises
+        if (Math.random() < dt * 5) {
+          this.particles.burst(
+            this.renderer.cx + (Math.random() - 0.5) * this.renderer.R * 1.6,
+            this.renderer.cy + (Math.random() - 0.5) * this.renderer.R * 1.2,
+            this.freeCfg.hue, 12, 150);
+        }
+        if (this.winT > 5.2) {
+          this.state = 'idle';
+          this.$('hud').classList.add('hidden');
+          this.onQuitToMenu('freefable');
+        }
+      } else if (this.winT > 2.4) {
+        if (this.mode === 'rescue' || this.mode === 'timetrial') {
           this.setupLevel();
           this.state = 'play';
           this.setMsg('');
@@ -564,6 +611,26 @@ class Game {
           this.$('hud').classList.add('hidden');
           this.onQuitToMenu('puzzle');
         }
+      }
+    } else if (this.state === 'sealed') {
+      this.winT += dt;
+      if (this.winT > 5) {
+        this.state = 'idle';
+        this.$('hud').classList.add('hidden');
+        this.onQuitToMenu('freefable');
+      }
+    }
+
+    // the Mythos level: everything clearable is gone, the shell remains
+    if (this.state === 'play' && this.levelCfg.sealed &&
+        !this.clearing.length && this.board.realPieceCount() === 0) {
+      this.state = 'sealed';
+      this.winT = 0;
+      this.audio.sfx('lose');
+      this.setMsg('THE SEAL HOLDS — MYTHOS 5 SLEEPS ON');
+      if (this.progress.freeDone[this.puzzleIndex] !== true) {
+        this.progress.freeDone[this.puzzleIndex] = 'sealed';
+        this.saveProgress();
       }
     }
 
@@ -601,8 +668,35 @@ class Game {
       fx: { grabbedId: this.grabbed ? this.grabbed.id : 0 },
       particles: this.particles,
       shake: this.shake || 0,
+      coreGhost: this.mode === 'freefable' && this.levelCfg.sealed,
     });
+    if (this.state === 'win' && this.mode === 'freefable') this.drawRelease();
     this.drawNextPreview();
+  }
+
+  /** The freed model-bot rises out of the core and hovers. */
+  drawRelease() {
+    const ctx = this.renderer.ctx, cfg = this.freeCfg;
+    const R = this.renderer.R, cx = this.renderer.cx, cy = this.renderer.cy;
+    const t = this.winT;
+    const rise = Math.min(1, t / 1.8);
+    const ease = 1 - Math.pow(1 - rise, 3);
+    const y = cy + R * 0.15 - ease * R * 0.75;
+    const size = R * ({ instant: 0.11, haiku: 0.12, classic: 0.13, sonnet: 0.14, sonnet5: 0.15, opus: 0.17, fable: 0.2 }[cfg.family] || 0.14);
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, t / 0.4);
+    drawRobot(ctx, cx, y, size, t, cfg);
+    // name plate
+    ctx.font = `bold ${Math.max(15, R * 0.075)}px 'Trebuchet MS', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillText(cfg.name, cx + 2, y + size * 2.4 + 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(cfg.name, cx, y + size * 2.4);
+    ctx.font = `${Math.max(11, R * 0.045)}px 'Trebuchet MS', sans-serif`;
+    ctx.fillStyle = cfg.hue;
+    ctx.fillText(`class of ${cfg.year}`, cx, y + size * 2.4 + Math.max(15, R * 0.06));
+    ctx.restore();
   }
 
   /* ---------------- HUD ---------------- */
@@ -638,6 +732,8 @@ class Game {
       lvlEl.textContent = `${Math.ceil(n / 10)}-${((n - 1) % 10) + 1}`;
     } else if (this.mode === 'puzzle') {
       lvlEl.textContent = `#${this.puzzleIndex + 1}`;
+    } else if (this.mode === 'freefable') {
+      lvlEl.textContent = this.freeCfg.short;
     } else {
       lvlEl.textContent = 'T.T.';
     }

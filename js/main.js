@@ -9,7 +9,7 @@
   const game = new Game(renderer, input, audio);
 
   const $ = (id) => document.getElementById(id);
-  const overlays = ['menu', 'puzzle-select', 'help', 'pause'];
+  const overlays = ['menu', 'puzzle-select', 'fable-select', 'help', 'pause'];
   function show(id) {
     for (const o of overlays) $(o).classList.toggle('hidden', o !== id);
     if (id === null) for (const o of overlays) $(o).classList.add('hidden');
@@ -29,6 +29,7 @@
     const mode = b.dataset.mode;
     if (mode === 'help') { show('help'); return; }
     if (mode === 'puzzle') { buildPuzzleGrid(); show('puzzle-select'); return; }
+    if (mode === 'freefable') { buildFableGrid(); show('fable-select'); return; }
     hideAll();
     game.start(mode);
   });
@@ -65,9 +66,33 @@
     });
   }
 
+  function buildFableGrid() {
+    const grid = $('fable-grid');
+    grid.innerHTML = '';
+    const unlocked = game.progress.freeUnlocked;
+    FREE_FABLE.forEach((cfg, i) => {
+      const b = document.createElement('button');
+      const done = game.progress.freeDone[i];
+      const mark = done === true ? '★' : done === 'sealed' ? '⛓' : cfg.sealed ? '🔒' : '';
+      b.innerHTML = `<span class="fname">${cfg.short}</span><span class="stars">${mark || cfg.year}</span>`;
+      b.style.setProperty('--hue', cfg.hue);
+      if (i > unlocked) {
+        b.classList.add('locked');
+      } else {
+        b.addEventListener('click', () => {
+          audio.sfx('menu');
+          hideAll();
+          game.start('freefable', i);
+        });
+      }
+      grid.appendChild(b);
+    });
+  }
+
   game.onPause = () => show('pause');
   game.onQuitToMenu = (returnTo) => {
     if (returnTo === 'puzzle') { buildPuzzleGrid(); show('puzzle-select'); }
+    else if (returnTo === 'freefable') { buildFableGrid(); show('fable-select'); }
     else show('menu');
   };
 

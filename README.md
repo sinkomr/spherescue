@@ -64,6 +64,14 @@ Faithful rules implemented:
 - **Rescue** — the main campaign: expose the required number of 2×2 core
   sections to free the robot. Ten episodes of ten levels with more layers,
   more piece types, and a faster meter as you go. Progress is saved.
+- **Free Fable** — a 22-level bonus campaign that frees an animated robot
+  for every Claude model, ordered by capability (per Wikipedia's model
+  history) from Claude Instant up to **Fable 5**. Each board is a seeded,
+  patterned dig that ramps in depth, piece variety, and speed; exposing a
+  core section restores a heart. Every playable level is verified solvable
+  by an automated player using only real game moves. The final level holds
+  **Mythos 5** behind an unbroken crystal shell that — provably, under the
+  game's own rules — cannot be breached. Some models stay behind glass.
 - **Puzzle** — 25 handcrafted levels in the spirit of the original's 100:
   a fixed cut-away layout, a budget of **drags** (one per square slid) and
   **drops** (every drop is wild), clear *everything*, R to reset. Levels
@@ -79,6 +87,7 @@ Faithful rules implemented:
 | `js/render.js` | Canvas 2D fisheye "sphere" projection, blocks, core, starfield |
 | `js/game.js` | Modes, combos, sparks/power/magic, speed meter, HUD |
 | `js/levels.js` | Rescue sphere generator + hand-authored puzzles (solutions in comments) |
+| `js/freefable.js` | Free Fable campaign: seeded boards, model roster, robot art |
 | `js/input.js` | Keyboard (DAS repeat), gamepad, touch |
 | `js/audio.js` | WebAudio sequencer — original techno groove + synth SFX |
 | `js/main.js` | Menus and the main loop |

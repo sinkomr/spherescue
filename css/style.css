@@ -112,6 +112,25 @@ html, body {
 #puzzle-grid button.locked { opacity: .35; cursor: default; }
 #puzzle-grid button.locked:hover { transform: none; box-shadow: none; background: rgba(30,34,80,.6); border-color: rgba(120,140,255,.5); }
 
+#fable-grid {
+  display: grid; grid-template-columns: repeat(4, 128px); gap: 10px;
+  max-height: 56vh; overflow-y: auto; padding: 6px;
+}
+#fable-grid button {
+  padding: 8px 4px; font-size: 13px; letter-spacing: 1px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border-color: var(--hue, rgba(120,140,255,.5));
+}
+#fable-grid button .fname { font-size: 13px; }
+#fable-grid button .stars { font-size: 11px; color: var(--hue, #ffd75e); letter-spacing: 1px; }
+#fable-grid button.locked { opacity: .3; cursor: default; }
+#fable-grid button.locked:hover { transform: none; box-shadow: none; background: rgba(30,34,80,.6); }
+
+@media (max-width: 700px) {
+  #fable-grid { grid-template-columns: repeat(3, 104px); }
+  #fable-grid button { font-size: 11px; }
+}
+
 .help-text { max-width: 620px; line-height: 1.55; font-size: 15px; padding: 0 22px; }
 .help-text p { margin-bottom: 10px; }
 .help-text b { color: #43e5c5; }

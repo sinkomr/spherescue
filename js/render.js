@@ -400,6 +400,7 @@ class SphereRenderer {
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     this.drawBackground(w, h);
     this.drawCore();
+    if (opts && opts.coreGhost) drawMythosGhost(ctx, this.cx, this.cy, this.R, this.time);
     this.drawBoard(board, opts && opts.fx);
     if (opts && opts.falling) {
       this.wildHeld = !!opts.wild;

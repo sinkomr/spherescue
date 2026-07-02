@@ -60,6 +60,7 @@
     <p class="tagline">a browser tribute to the N64 classic <em>Tetrisphere</em></p>
     <div class="menu-items" id="main-menu">
       <button data-mode="rescue">RESCUE</button>
+      <button data-mode="freefable">FREE FABLE</button>
       <button data-mode="puzzle">PUZZLE</button>
       <button data-mode="timetrial">TIME TRIAL</button>
       <button data-mode="help">HOW TO PLAY</button>
@@ -70,6 +71,13 @@
   <div id="puzzle-select" class="overlay hidden">
     <h2>PUZZLE</h2>
     <div id="puzzle-grid"></div>
+    <button class="back" data-back>BACK</button>
+  </div>
+
+  <div id="fable-select" class="overlay hidden">
+    <h2>FREE FABLE</h2>
+    <p class="tagline">every Claude, trapped in a sphere — dig them out, weakest to strongest</p>
+    <div id="fable-grid"></div>
     <button class="back" data-back>BACK</button>
   </div>
 
@@ -84,6 +92,7 @@
       <p><b>POWER &amp; MAGIC</b> — clears shower sparks that turn pieces glowy (worth 10×, they feed the X-Count and can even climb layers when dragged). Big clears earn <b>magic</b>: fire it with <b>C</b>. Grab a crystal patch shaped exactly like your piece to forge a power piece.</p>
       <p><b>WILD “?”</b> — morphs through every shape; drop the moment it shows the one you want.</p>
       <p><b>PUZZLE MODE</b> — clear <em>every</em> piece with a fixed budget of drags and drops. Every drop is wild. No timer, no hearts. <b>R</b> resets the puzzle.</p>
+      <p><b>FREE FABLE</b> — every Claude model is trapped in a sphere, weakest to strongest. Dig to the core to release them; exposing a section restores a heart. Rumor says the last vault has never been opened.</p>
       <p class="pad">🎮 Gamepad: stick/d-pad move · A drop · B grab · X magic · Y reset · Start pause. &nbsp; 📱 Touch: swipe to move · tap to drop · two-finger tap toggles grab.</p>
     </div>
     <button class="back" data-back>BACK</button>
@@ -104,6 +113,7 @@
 <script src="js/audio.js"></script>
 <script src="js/input.js"></script>
 <script src="js/levels.js"></script>
+<script src="js/freefable.js"></script>
 <script src="js/game.js"></script>
 <script src="js/main.js"></script>
 </body>

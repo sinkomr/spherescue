@@ -265,6 +265,48 @@ class Board {
     return n;
   }
 
+  /** Count of resting, fully-uncovered pieces per type (surface presence). */
+  surfaceCounts() {
+    const counts = {};
+    for (const p of this.pieces.values()) {
+      if (p.crystal || p.state !== 'resting') continue;
+      let top = true;
+      for (const [u, v] of p.cells(this.W, this.H)) {
+        if (this.at(u, v, p.z + 1)) { top = false; break; }
+      }
+      if (top) counts[p.type] = (counts[p.type] || 0) + 1;
+    }
+    return counts;
+  }
+
+  /** Types with a guaranteed valid drop: an uncovered piece already in a
+   *  touching group (dropping exactly on top of it makes 3). */
+  liveTypes(types) {
+    const tops = {};
+    for (const p of this.pieces.values()) {
+      if (p.crystal || p.state !== 'resting' || !types.includes(p.type)) continue;
+      let top = true;
+      for (const [u, v] of p.cells(this.W, this.H)) {
+        if (this.at(u, v, p.z + 1)) { top = false; break; }
+      }
+      if (top) (tops[p.type] = tops[p.type] || []).push(p);
+    }
+    const live = [];
+    const probeCache = {};
+    for (const type of types) {
+      for (const p of (tops[type] || [])) {
+        if (this.matchGroup(p).length < 2) continue;
+        // a neighboring ledge can overhang the column and catch the falling
+        // piece early — live means the drop genuinely lands flush on p
+        const probe = probeCache[type] || (probeCache[type] = new Piece(type, 0, 0, 0));
+        probe.u = p.u; probe.v = p.v;
+        if (!this.fits(probe, p.u, p.v, this.occ.length - 1)) continue;
+        if (this.dropZ(probe, p.u, p.v) === p.z + 1) { live.push(type); break; }
+      }
+    }
+    return live;
+  }
+
   realPieceCount() {
     let n = 0;
     for (const p of this.pieces.values()) if (!p.crystal) n++;
