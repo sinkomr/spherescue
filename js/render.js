@@ -12,9 +12,12 @@
 const VIEW = {
   anglePerCell: 0.19,   // radians of arc per grid cell
   horizon: 1.45,        // rho beyond which cells are culled
-  layerH: 0.085,        // radius growth per stacked layer
+  layerH: 0.15,         // radius growth per stacked layer
   lightDir: norm3(-0.38, 0.55, 0.74),
 };
+
+/** Deeper layers are dimmer — the strongest at-a-glance height cue. */
+function layerShade(z) { return Math.min(1, 0.72 + 0.14 * z); }
 
 function norm3(x, y, z) { const l = Math.hypot(x, y, z); return [x / l, y / l, z / l]; }
 
@@ -176,7 +179,7 @@ class SphereRenderer {
       const inset = 0.22;
       const csI = [[-0.5 + inset, -0.5 + inset], [0.5 - inset, -0.5 + inset], [0.5 - inset, 0.5 - inset], [-0.5 + inset, 0.5 - inset]];
       const pts0 = csI.map(([cu, cvv]) => this.project(du + cu, dv + cvv, z + 0.6));
-      const lamC = 0.35 + 0.5 * this.lambert(center.n);
+      const lamC = (0.35 + 0.5 * this.lambert(center.n)) * layerShade(z);
       items.push({
         depth: center.depth - 0.001,
         draw: (ctx) => {
@@ -197,33 +200,44 @@ class SphereRenderer {
     }
     if (piece.power) flash = Math.max(flash, 0.25 + 0.2 * Math.sin(this.time * 6 + piece.id));
 
-    // Side faces where the neighboring column is lower.
+    // Side faces where the neighboring column is lower: opaque, strongly
+    // shaded, with a bright rim at the top and a dark seam at the base so
+    // ledges read clearly.
     const sides = [[1, 0, 1, 2], [-1, 0, 3, 0], [0, 1, 2, 3], [0, -1, 0, 1]];
     for (const [su, sv, cA, cB] of sides) {
       const samePiece = board.at(u + su, v + sv, z) === piece.id;
       if (samePiece) continue;
-      const nbTop = board.topZ(u + su, v + sv);
-      if (nbTop > z) continue; // neighbor covers this side
+      if (board.at(u + su, v + sv, z)) continue; // neighbor covers this side
       const lo = cs.map(([cu, cvv]) => this.project(du + cu, dv + cvv, z));
       const A2 = top[cA], B2 = top[cB], A1 = lo[cA], B1 = lo[cB];
-      const shade = 0.35 + 0.45 * this.lambert([su * 0.8, -sv * 0.8, 0.3]);
+      const shade = (0.30 + 0.55 * this.lambert([su * 0.8, -sv * 0.8, 0.3])) * layerShade(z);
       const depth = (A1.depth + B1.depth) / 2 - 0.002;
       items.push({
         depth,
         draw: (ctx) => {
           ctx.fillStyle = flash > 0 ? '#ffffff' : col.side;
-          ctx.globalAlpha = Math.min(1, shade + flash);
           poly(ctx, [A1, B1, B2, A2]);
           ctx.fill();
-          ctx.globalAlpha = 1;
+          if (flash <= 0) {
+            ctx.fillStyle = `rgba(0,0,0,${(1 - Math.min(1, shade)).toFixed(3)})`;
+            ctx.fill();
+          }
+          // bright ledge rim + dark base seam
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(A2.x, A2.y); ctx.lineTo(B2.x, B2.y); ctx.stroke();
+          ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+          ctx.beginPath(); ctx.moveTo(A1.x, A1.y); ctx.lineTo(B1.x, B1.y); ctx.stroke();
         },
       });
     }
 
     // Top face.
-    const lam = 0.45 + 0.62 * this.lambert(center.n);
+    const lam = (0.45 + 0.62 * this.lambert(center.n)) * layerShade(z);
     const edges = [[0, 1, 0, -1], [1, 2, 1, 0], [2, 3, 0, 1], [3, 0, -1, 0]];
     const internal = edges.map(([, , eu, ev]) => board.at(u + eu, v + ev, z) === piece.id);
+    // a taller neighboring stack casts a contact shadow onto this face
+    const shadowed = edges.map(([, , eu, ev]) => board.topZ(u + eu, v + ev) > z + 1);
     items.push({
       depth: center.depth,
       draw: (ctx) => {
@@ -257,6 +271,17 @@ class SphereRenderer {
           const [i1, i2] = edges[e];
           ctx.strokeStyle = internal[e] ? 'rgba(255,255,255,0.10)' : col.dark;
           ctx.lineWidth = internal[e] ? 1 : 2;
+          ctx.beginPath();
+          ctx.moveTo(pts[i1].x, pts[i1].y);
+          ctx.lineTo(pts[i2].x, pts[i2].y);
+          ctx.stroke();
+        }
+        // contact shadow from taller neighbors
+        for (let e = 0; e < 4; e++) {
+          if (!shadowed[e]) continue;
+          const [i1, i2] = edges[e];
+          ctx.strokeStyle = 'rgba(0,0,0,0.42)';
+          ctx.lineWidth = 5;
           ctx.beginPath();
           ctx.moveTo(pts[i1].x, pts[i1].y);
           ctx.lineTo(pts[i2].x, pts[i2].y);
