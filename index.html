@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Sphere Rescue — a Tetrisphere-style puzzle game</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%233f7fe8'/><rect x='30' y='30' width='40' height='40' fill='%2343e5c5'/></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="hud-left">
+      <div class="panel">
+        <div class="label">SCORE</div>
+        <div id="score" class="big">0</div>
+      </div>
+      <div class="panel">
+        <div class="label">LEVEL</div>
+        <div id="level" class="big">1</div>
+      </div>
+      <div class="panel" id="goal-panel">
+        <div class="label" id="goal-label">CORE</div>
+        <div class="meter"><div id="goal-fill"></div></div>
+        <div id="goal-text" class="small"></div>
+      </div>
+    </div>
+    <div id="hud-right">
+      <div class="panel">
+        <div class="label">NEXT</div>
+        <canvas id="next" width="96" height="128"></canvas>
+      </div>
+      <div class="panel" id="speed-panel">
+        <div class="label">SPEED</div>
+        <div class="meter"><div id="speed-fill"></div></div>
+      </div>
+      <div class="panel">
+        <div class="label" id="drops-label">HEARTS</div>
+        <div id="drops" class="pips"></div>
+      </div>
+      <div class="panel" id="combo-panel">
+        <div class="label">X-COUNT</div>
+        <div id="combo" class="big dim">—</div>
+      </div>
+      <div class="panel" id="magic-panel">
+        <div class="label">MAGIC <span class="key-hint">(C)</span></div>
+        <div id="magic-name" class="small dim">—</div>
+        <div class="meter"><div id="magic-fill"></div></div>
+      </div>
+    </div>
+    <div id="msg"></div>
+  </div>
+
+  <!-- Menus -->
+  <div id="menu" class="overlay">
+    <h1>SPHERE<span>RESCUE</span></h1>
+    <p class="tagline">a browser tribute to the N64 classic <em>Tetrisphere</em></p>
+    <div class="menu-items" id="main-menu">
+      <button data-mode="rescue">RESCUE</button>
+      <button data-mode="puzzle">PUZZLE</button>
+      <button data-mode="timetrial">TIME TRIAL</button>
+      <button data-mode="help">HOW TO PLAY</button>
+    </div>
+    <p class="hint">arrows / WASD move &nbsp;·&nbsp; SPACE drop &nbsp;·&nbsp; SHIFT+dir slide &nbsp;·&nbsp; M music</p>
+  </div>
+
+  <div id="puzzle-select" class="overlay hidden">
+    <h2>PUZZLE</h2>
+    <div id="puzzle-grid"></div>
+    <button class="back" data-back>BACK</button>
+  </div>
+
+  <div id="help" class="overlay hidden">
+    <h2>HOW TO PLAY</h2>
+    <div class="help-text">
+      <p><b>The sphere is layers of pieces around a core.</b> Dig down and expose core sections to free the robot trapped inside.</p>
+      <p><b>MOVE</b> — arrows / WASD scroll the sphere under your hovering piece. It wraps forever in every direction. There's no rotation — vertical and horizontal bars are different pieces.</p>
+      <p><b>DROP</b> — <b>SPACE</b> drops your piece onto the dashed shadow. A drop must join <b>at least two more pieces of the same shape</b> — the whole connected group implodes, chaining sideways and straight down through stacked twins. A drop that clears nothing is a <b>wasted drop</b>: you lose a heart and your X-Count.</p>
+      <p><b>SLIDE</b> — hold <b>SHIFT</b> (or X) over a piece <em>shaped like your current piece</em> to grab it, then move it. Slides smash through grey crystals but stop at real pieces. Slide a piece off a ledge and it falls — landing against two like pieces clears them for free (<b>gravity combo</b>).</p>
+      <p><b>SPEED</b> — the meter drains and the camera creeps in; when it runs out your piece drops wherever it is. Clears reset it.</p>
+      <p><b>POWER &amp; MAGIC</b> — clears shower sparks that turn pieces glowy (worth 10×, they feed the X-Count and can even climb layers when dragged). Big clears earn <b>magic</b>: fire it with <b>C</b>. Grab a crystal patch shaped exactly like your piece to forge a power piece.</p>
+      <p><b>WILD “?”</b> — morphs through every shape; drop the moment it shows the one you want.</p>
+      <p><b>PUZZLE MODE</b> — clear <em>every</em> piece with a fixed budget of drags and drops. Every drop is wild. No timer, no hearts. <b>R</b> resets the puzzle.</p>
+      <p class="pad">🎮 Gamepad: stick/d-pad move · A drop · B grab · X magic · Y reset · Start pause. &nbsp; 📱 Touch: swipe to move · tap to drop · two-finger tap toggles grab.</p>
+    </div>
+    <button class="back" data-back>BACK</button>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <h2>PAUSED</h2>
+    <div class="menu-items">
+      <button data-resume>RESUME</button>
+      <button data-quit>QUIT TO MENU</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/engine.js"></script>
+<script src="js/render.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

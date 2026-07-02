@@ -1,0 +1,89 @@
+# Sphere Rescue
+
+A browser tribute to **Tetrisphere** (H2O Entertainment / Nintendo, N64, 1997) —
+rebuilt from scratch in plain JavaScript with no dependencies, no build step,
+and original art and music. Open `index.html` and play.
+
+> The previous contents of this repo (a non-functional emulator page) were
+> removed. This is a ground-up reimplementation of the game's mechanics,
+> not an emulator: no ROM, no ripped assets.
+
+## Play
+
+Serve the folder (or just open the file):
+
+```sh
+python3 -m http.server 8000
+# → http://localhost:8000
+```
+
+### Controls
+
+| Action | Keyboard | Gamepad | Touch |
+|---|---|---|---|
+| Move / scroll sphere | Arrows / WASD | D-pad or stick | swipe |
+| Drop piece | Space / Z / Enter | A | tap |
+| Grab & drag piece (hold) | Shift / X | B (hold) | two-finger tap toggles |
+| Fire magic | C | X | — |
+| Reset puzzle | R | Y | — |
+| Pause | Esc / P | Start | — |
+| Music on/off | M | — | — |
+
+## How it works (like the original did)
+
+The "sphere" is a lie the original told too: the playfield is a **32×32 grid
+that wraps in both directions** (a torus), drawn with an azimuthal fisheye
+projection so it reads as a planet you can scroll around forever. Pieces
+stack in up to 8 layers over a core.
+
+Faithful rules implemented:
+
+- **Six piece shapes, no rotation** — yellow and green 3-bars (horizontal vs
+  vertical are *different pieces*), pink L, blue 2×2 square, red T, cyan Z.
+  Grey 1×1 **crystals** pad the gaps.
+- **Strict vs loose matching** — squares and bars only count as touching on
+  full flush side contact; L, T and Z touch on any edge. Exactly-stacked
+  same-type pieces connect vertically, so chains eat down through layers.
+- **Drops must combo** — the dropped piece has to join at least two of its
+  kind or you lose one of three hearts, your X-Count, and any held magic.
+- **Grab & slide** — hold grab over a piece shaped like your current piece to
+  drag it. Slides plow through crystals, stop at real pieces, and pieces
+  that lose support fall; a fallen piece landing against two like pieces
+  clears for free (**gravity combo**).
+- **Speed meter** — drains blue → yellow → red while you dither, the camera
+  zooming in until the piece force-drops.
+- **Power pieces & magic** — every clear showers sparks that turn pieces
+  glowy (10× points, X-Count fuel, they can climb layers while dragged; you
+  can also forge one by grabbing a crystal patch shaped like your piece).
+  Big clears earn the magic ladder: Firecracker → Dynamite → Magnet → Atom →
+  Bomb → Ray Gun, fired with C.
+- **Wild "?" pieces** morph through every shape — drop at the right moment.
+
+## Modes
+
+- **Rescue** — the main campaign: expose the required number of 2×2 core
+  sections to free the robot. Ten episodes of ten levels with more layers,
+  more piece types, and a faster meter as you go. Progress is saved.
+- **Puzzle** — 25 handcrafted levels in the spirit of the original's 100:
+  a fixed cut-away layout, a budget of **drags** (one per square slid) and
+  **drops** (every drop is wild), clear *everything*, R to reset. Levels
+  unlock in order and teach slide economy, gravity combos, crystal plowing,
+  vertical stacks, and the wrap-around seam.
+- **Time Trial** — five minutes, maximum score, core sections worth 3×.
+
+## Code map
+
+| File | What it is |
+|---|---|
+| `js/engine.js` | Torus grid, pieces, stacking, slide/drop/settle, match rules |
+| `js/render.js` | Canvas 2D fisheye "sphere" projection, blocks, core, starfield |
+| `js/game.js` | Modes, combos, sparks/power/magic, speed meter, HUD |
+| `js/levels.js` | Rescue sphere generator + hand-authored puzzles (solutions in comments) |
+| `js/input.js` | Keyboard (DAS repeat), gamepad, touch |
+| `js/audio.js` | WebAudio sequencer — original techno groove + synth SFX |
+| `js/main.js` | Menus and the main loop |
+
+Mechanics were reconstructed from public documentation of the original
+(manual text, tetris.wiki, Hard Drop wiki, GameFAQs guides, reviews).
+The soundtrack is an original composition in the spirit of Neil Voss's
+celebrated score; no assets were taken from the game or its emulation.
