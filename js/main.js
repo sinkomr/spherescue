@@ -6,6 +6,7 @@
   const renderer = new SphereRenderer(canvas);
   const input = new Input(canvas);
   const audio = new AudioEngine();
+  const touchUI = new TouchUI(input, renderer, audio);
   const game = new Game(renderer, input, audio);
 
   const $ = (id) => document.getElementById(id);
@@ -107,6 +108,7 @@
     audio.update();
     game.update(dt);
     game.render();
+    touchUI.update(game);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

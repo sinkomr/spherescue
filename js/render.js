@@ -73,8 +73,21 @@ class SphereRenderer {
       this.canvas.width = w * dpr; this.canvas.height = h * dpr;
     }
     this.dpr = dpr;
-    this.cx = w / 2; this.cy = h / 2;
-    this.R = Math.min(w, h) * 0.36 * (this.zoom || 1);
+    if (this.mobile && h > w) {
+      // portrait phone: sphere in the upper area, controls own the bottom
+      this.cx = w / 2;
+      this.cy = h * 0.36;
+      this.R = Math.min(w * 0.46, h * 0.26) * (this.zoom || 1);
+    } else if (this.mobile) {
+      // landscape: controls flank the sphere
+      this.cx = w / 2;
+      this.cy = h * 0.46;
+      this.R = Math.min(w * 0.3, h * 0.36) * (this.zoom || 1);
+    } else {
+      this.cx = w / 2;
+      this.cy = h / 2;
+      this.R = Math.min(w, h) * 0.36 * (this.zoom || 1);
+    }
   }
 
   /** Signed wrapped delta from camera, in cells. */
