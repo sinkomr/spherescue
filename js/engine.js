@@ -48,6 +48,7 @@ class Piece {
     this.power = false;       // glowing power piece (1000 pts, refills timer)
     this.state = 'resting';   // resting | clearing
     this.clearT = 0;
+    this.clearDelay = 0;      // stagger within a rolling chain
   }
   get crystal() { return this.type === 'C'; }
   cells(W, H) {

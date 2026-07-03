@@ -254,9 +254,17 @@ class SphereRenderer {
 
     let flash = 0, scale = 1;
     if (piece.state === 'clearing') {
-      flash = 0.5 + 0.5 * Math.sin(piece.clearT * 40);
-      scale = Math.max(0, 1 - piece.clearT * 2.4);
-      if (scale <= 0) return;
+      const delay = piece.clearDelay || 0;
+      if (piece.clearT < delay) {
+        // queued in the chain: flash white in place
+        flash = 0.45 + 0.4 * Math.sin(piece.clearT * 25);
+      } else {
+        // this piece's turn: shatter
+        const p = (piece.clearT - delay) / 0.25;
+        flash = 1;
+        scale = Math.max(0, 1 - p);
+        if (scale <= 0) return;
+      }
     }
     const grabbed = fx && fx.grabbedId === piece.id;
     if (piece.power) flash = Math.max(flash, 0.25 + 0.2 * Math.sin(this.time * 6 + piece.id));
@@ -361,73 +369,47 @@ class SphereRenderer {
     });
   }
 
-  /** Falling piece hovering above its landing spot + landing shadow. */
-  drawFalling(board, piece, landZ, hover) {
+  /** The held piece as a translucent ghost embedded at its landing spot
+   *  (like the original). Pulses bright when the drop would combo; stays
+   *  dim grey when it would be a wasted drop. */
+  drawGhost(board, piece, landZ, valid) {
     const items = [];
-    const bob = 0.25 * Math.sin(this.time * 3.2);
+    const col = SHAPE_COLORS[piece.type];
+    const wild = this.wildHeld;
+    const z = Math.min(landZ, board.occ.length - 1);
+    const overflow = landZ >= board.occ.length;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * (valid ? 9 : 4));
     for (const [du0, dv0] of SHAPES[piece.type].cells) {
       const du = this.wrapDU(piece.u + du0, board.W), dv = this.wrapDV(piece.v + dv0, board.H);
-      // shadow at landing layer
-      const sh = this.projectCorners(du, dv, landZ);
+      const top = this.projectCorners(du, dv, z + 1);
+      const lo = this.projectCorners(du, dv, z);
       items.push({
-        depth: 5 + sh[0].depth, draw: (ctx) => {
-          ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-          ctx.setLineDash([5, 4]);
-          ctx.lineWidth = 1.6;
-          poly(ctx, sh);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.fillStyle = 'rgba(255,255,255,0.10)';
-          ctx.fill();
-        },
-      });
-      // light shaft from the hovering piece down to its landing spot —
-      // makes the drop column unambiguous at any height difference
-      const hz = hover + bob;
-      const lo = sh, hi = this.projectCorners(du, dv, hz);
-      items.push({
-        depth: 4.5 + lo[0].depth, draw: (ctx) => {
+        depth: 5 + top[0].depth, draw: (ctx) => {
+          // faint side skirt so the ghost reads as a block, not a decal
+          ctx.fillStyle = overflow ? 'rgba(255,60,60,0.16)' : `rgba(255,255,255,0.10)`;
           for (let e = 0; e < 4; e++) {
             const e2 = (e + 1) % 4;
-            ctx.fillStyle = 'rgba(180,220,255,0.05)';
             ctx.beginPath();
-            ctx.moveTo(hi[e].x, hi[e].y);
-            ctx.lineTo(hi[e2].x, hi[e2].y);
+            ctx.moveTo(top[e].x, top[e].y);
+            ctx.lineTo(top[e2].x, top[e2].y);
             ctx.lineTo(lo[e2].x, lo[e2].y);
             ctx.lineTo(lo[e].x, lo[e].y);
             ctx.closePath();
             ctx.fill();
           }
-          ctx.strokeStyle = 'rgba(190,225,255,0.28)';
-          ctx.lineWidth = 1;
-          for (let e = 0; e < 4; e++) {
-            ctx.beginPath();
-            ctx.moveTo(hi[e].x, hi[e].y);
-            ctx.lineTo(lo[e].x, lo[e].y);
-            ctx.stroke();
-          }
-        },
-      });
-      // hovering block
-      const topPts = this.projectCorners(du, dv, hz + 0.85);
-      const botPts = this.projectCorners(du, dv, hz);
-      const col = SHAPE_COLORS[piece.type];
-      const wild = this.wildHeld;
-      items.push({
-        depth: 6 + topPts[0].depth, draw: (ctx) => {
-          ctx.globalAlpha = 0.92;
-          ctx.fillStyle = col.side;
-          poly(ctx, botPts); ctx.fill();
-          ctx.fillStyle = col.top;
-          poly(ctx, topPts); ctx.fill();
-          if (wild) {
-            ctx.fillStyle = `rgba(255,255,255,${(0.25 + 0.2 * Math.sin(this.time * 9)).toFixed(2)})`;
-            ctx.fill();
-          }
-          ctx.strokeStyle = wild ? '#ffffff' : col.lite;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
+          // translucent top in the piece's color
+          ctx.globalAlpha = 0.38 + (valid ? 0.18 * pulse : 0);
+          ctx.fillStyle = overflow ? '#a03030' : (wild ? '#ffffff' : col.top);
+          poly(ctx, top);
+          ctx.fill();
           ctx.globalAlpha = 1;
+          // outline: bright pulse when the drop combos, dim when wasted
+          ctx.strokeStyle = overflow ? 'rgba(255,80,80,0.9)'
+            : valid ? `rgba(255,255,255,${(0.65 + 0.35 * pulse).toFixed(2)})`
+            : 'rgba(200,205,225,0.45)';
+          ctx.lineWidth = valid ? 2.5 : 1.6;
+          poly(ctx, top);
+          ctx.stroke();
         },
       });
     }
@@ -447,9 +429,9 @@ class SphereRenderer {
     this.drawCore();
     if (opts && opts.coreGhost) drawMythosGhost(ctx, this.cx, this.cy, this.R, this.time);
     this.drawBoard(board, opts && opts.fx);
-    if (opts && opts.falling) {
+    if (opts && opts.ghost) {
       this.wildHeld = !!opts.wild;
-      this.drawFalling(board, opts.falling, opts.landZ, opts.hover);
+      this.drawGhost(board, opts.ghost, opts.landZ, opts.valid);
     }
     if (opts && opts.particles) opts.particles.draw(ctx, this);
   }

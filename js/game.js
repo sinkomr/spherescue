@@ -21,7 +21,7 @@
 const MAGIC_ITEMS = [null, 'FIRECRACKER', 'DYNAMITE', 'MAGNET', 'ATOM', 'BOMB', 'RAY GUN'];
 const MAGIC_METER_MAX = 14;
 const SCORE_CAP = { normal: 900, power: 10000 };
-const CLEAR_ANIM = 0.45;
+const CLEAR_ANIM = 0.25; // per-piece shatter time once its turn in the chain comes
 
 class Game {
   constructor(renderer, input, audio) {
@@ -80,6 +80,9 @@ class Game {
     this.clearing = [];
     this.hearts = 3;
     this.puzzleTotal = null;
+    this.snapTarget = null;
+    this.dragPos = null;
+    this._lastCell = null;
 
     if (this.mode === 'puzzle') {
       const cfg = PUZZLES[this.puzzleIndex];
@@ -188,12 +191,76 @@ class Game {
   handleDir(dir) {
     const d = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
     if (this.grabbed) {
+      // a tap always drags exactly one cell (holding glides via updateMovement)
       this.slideStep(this.grabbed, d[0], d[1]);
     } else {
-      this.cursor.u = mod(this.cursor.u + d[0], this.board.W);
-      this.cursor.v = mod(this.cursor.v + d[1], this.board.H);
+      // a tap moves exactly one cell instantly (crisp); holding glides
+      // continuously via updateMovement at the measured speed
+      this.cursor.u = mod(Math.round(this.cursor.u) + d[0], this.board.W);
+      this.cursor.v = mod(Math.round(this.cursor.v) + d[1], this.board.H);
       this.audio.sfx('move');
       if (this.input.held.grab) this.tryGrab();
+    }
+  }
+
+  /** Smooth glide movement, matching the original's measured feel:
+   *  cursor scrolls at ~3.5 cells/s, drags at ~2.8 cells/s. The logical
+   *  grid cell is always round(cursor); drags step the grid whenever the
+   *  float position crosses a cell boundary. */
+  updateMovement(dt) {
+    const b = this.board;
+    const held = this.input.held;
+    const dx = (held.right ? 1 : 0) - (held.left ? 1 : 0);
+    const dy = (held.down ? 1 : 0) - (held.up ? 1 : 0);
+
+    if (this.grabbed) {
+      const p = this.grabbed;
+      if (!this.dragPos) this.dragPos = { u: p.u, v: p.v };
+      if (dx || dy) {
+        const n = Math.hypot(dx, dy);
+        this.dragPos.u += (dx / n) * 2.8 * dt;
+        this.dragPos.v += (dy / n) * 2.8 * dt;
+      } else {
+        // ease back onto the piece's cell
+        this.dragPos.u += (p.u - this.dragPos.u) * Math.min(1, dt * 12);
+        this.dragPos.v += (p.v - this.dragPos.v) * Math.min(1, dt * 12);
+      }
+      // crossing a boundary performs a real grid step (plow/block rules)
+      let guard = 0;
+      while (guard++ < 4) {
+        const du = Math.round(this.dragPos.u) - p.u;
+        const dv = Math.round(this.dragPos.v) - p.v;
+        if (du !== 0) {
+          if (!this.slideStep(p, Math.sign(du), 0, true)) { this.dragPos.u = p.u; break; }
+        } else if (dv !== 0) {
+          if (!this.slideStep(p, 0, Math.sign(dv), true)) { this.dragPos.v = p.v; break; }
+        } else break;
+        if (this.grabbed !== p) break; // cleared or dropped mid-drag
+      }
+      if (this.grabbed === p) {
+        this.cursor.u = this.dragPos.u;
+        this.cursor.v = this.dragPos.v;
+      }
+      return;
+    }
+    this.dragPos = null;
+
+    if (dx || dy) {
+      const n = Math.hypot(dx, dy);
+      this.cursor.u = mod(this.cursor.u + (dx / n) * 3.5 * dt, b.W);
+      this.cursor.v = mod(this.cursor.v + (dy / n) * 3.5 * dt, b.H);
+    } else {
+      // idle: settle onto the nearest cell center
+      const tu = Math.round(this.cursor.u), tv = Math.round(this.cursor.v);
+      this.cursor.u += (tu - this.cursor.u) * Math.min(1, dt * 10);
+      this.cursor.v += (tv - this.cursor.v) * Math.min(1, dt * 10);
+    }
+    // blip when the logical cell changes
+    const cell = Math.round(this.cursor.u) + ',' + Math.round(this.cursor.v);
+    if (cell !== this._lastCell) {
+      this._lastCell = cell;
+      this.audio.sfx('move');
+      if (this.input.held.grab && !this.grabbed) this.tryGrab();
     }
   }
 
@@ -201,7 +268,7 @@ class Game {
    *  from a crystal formation matching the held shape). */
   tryGrab() {
     if (this.grabbed) return;
-    const { u, v } = this.cursor;
+    const u = Math.round(this.cursor.u), v = Math.round(this.cursor.v);
     const shape = this.heldShape();
 
     // crystal formation exactly matching the held shape -> power piece
@@ -219,6 +286,7 @@ class Game {
       np.power = true;
       this.board.addPiece(np);
       this.grabbed = np;
+      this.dragPos = { u: np.u, v: np.v };
       this.addScore(1000, false);
       this.audio.sfx('magic');
       this.toast('POWER PIECE!');
@@ -233,13 +301,17 @@ class Game {
     }
     if (this.heldType !== 'WILD' && p.type !== this.heldType) { this.audio.sfx('bad'); return; }
     this.grabbed = p;
+    this.dragPos = { u: p.u, v: p.v };
     this.audio.sfx('slide');
   }
 
-  /** One slide step of the grabbed piece. */
-  slideStep(piece, du, dv) {
+  /** One slide step of the grabbed piece. Returns true if it moved. */
+  slideStep(piece, du, dv, quiet = false) {
     const b = this.board;
-    if (this.mode === 'puzzle' && this.drags <= 0) { this.audio.sfx('bad'); this.toast('NO DRAGS LEFT'); return; }
+    if (this.mode === 'puzzle' && this.drags <= 0) {
+      if (!quiet) { this.audio.sfx('bad'); this.toast('NO DRAGS LEFT'); }
+      return false;
+    }
 
     // plow through crystals
     for (const c of b.crystalsInPath(piece, du, dv)) {
@@ -254,14 +326,15 @@ class Game {
         b.moveTo(piece, piece.u + du, piece.v + dv, piece.z + 1);
         movedUp = true;
       } else {
-        this.audio.sfx('bad');
-        return;
+        if (!quiet) this.audio.sfx('bad');
+        return false;
       }
     }
     if (this.mode === 'puzzle') this.drags--;
     this.audio.sfx('slide');
     this.cursor.u = mod(piece.u, b.W);
     this.cursor.v = mod(piece.v, b.H);
+    if (this.grabbed === piece) this.dragPos = { u: piece.u, v: piece.v };
 
     // gravity: the slid piece (or pieces it was supporting) may fall
     const moved = b.settle();
@@ -271,6 +344,7 @@ class Game {
     if (!any && moved.size) this.audio.sfx('land');
     this.updateHud();
     this.checkPuzzleStuck();
+    return true;
   }
 
   /** A fallen piece clearing against 2+ like pieces — free clear. */
@@ -288,7 +362,7 @@ class Game {
     if (this.mode === 'puzzle' && this.drops <= 0) { this.audio.sfx('bad'); this.toast('NO DROPS LEFT'); return; }
     const b = this.board;
     const shape = this.heldShape();
-    const probe = new Piece(shape, this.cursor.u, this.cursor.v, 0);
+    const probe = new Piece(shape, Math.round(this.cursor.u), Math.round(this.cursor.v), 0);
 
     if (!b.fits(probe, probe.u, probe.v, b.occ.length - 1)) {
       // column full to the cap: illegal placement
@@ -347,16 +421,34 @@ class Game {
     }
     this.addScore(pts, true);
 
-    for (const p of [...group, ...crystals]) {
+    // The chain rolls piece by piece like the original (~200ms apart),
+    // spreading outward from the triggering piece. Pieces flash white
+    // while queued, then shatter in turn. The board stays interactive.
+    const seed = group[0];
+    const order = [...group].sort((a, b) => {
+      const da = Math.abs(mod(a.u - seed.u + this.board.W / 2, this.board.W) - this.board.W / 2) +
+                 Math.abs(mod(a.v - seed.v + this.board.H / 2, this.board.H) - this.board.H / 2);
+      const db = Math.abs(mod(b.u - seed.u + this.board.W / 2, this.board.W) - this.board.W / 2) +
+                 Math.abs(mod(b.v - seed.v + this.board.H / 2, this.board.H) - this.board.H / 2);
+      return da - db;
+    });
+    order.forEach((p, i) => {
       p.state = 'clearing';
       p.clearT = 0;
+      p.clearDelay = i * 0.2;
       p.sparkCredit = false;
+    });
+    for (const c of crystals) {
+      c.state = 'clearing';
+      c.clearT = 0;
+      c.clearDelay = order.length * 0.2; // crystals shatter at the end
+      c.sparkCredit = false;
     }
     // only real pieces count toward spark/magic totals
-    group[0].sparkCredit = true;
-    group[0].sparkCount = group.length;
+    order[0].sparkCredit = true;
+    order[0].sparkCount = group.length;
 
-    this.clearing.push(...group, ...crystals);
+    this.clearing.push(...order, ...crystals);
 
     // magic economy
     if (group.length >= 20) {
@@ -370,7 +462,6 @@ class Game {
     this.comboFlash = 1;
     this.audio.sfx(kind === 'gravity' ? 'combo' : 'clear', Math.min(group.length, 8));
     if (kind === 'gravity') this.toast('GRAVITY COMBO!');
-    for (const p of group) this.spawnBurstAt(p, SHAPE_COLORS[p.type].top, 5);
     this.updateHud();
   }
 
@@ -382,13 +473,20 @@ class Game {
 
   updateClears(dt) {
     if (!this.clearing.length) return;
+    const done = (p) => p.clearT >= (p.clearDelay || 0) + CLEAR_ANIM;
     let finished = [];
     for (const p of this.clearing) {
+      const was = p.clearT;
       p.clearT += dt;
-      if (p.clearT >= CLEAR_ANIM) finished.push(p);
+      // pop sound + debris the moment each piece starts shattering
+      if (was < (p.clearDelay || 0) && p.clearT >= (p.clearDelay || 0) && !p.crystal) {
+        this.audio.sfx('move');
+        this.spawnBurstAt(p, SHAPE_COLORS[p.type].top, 8);
+      }
+      if (done(p)) finished.push(p);
     }
     if (!finished.length) return;
-    this.clearing = this.clearing.filter(p => p.clearT < CLEAR_ANIM);
+    this.clearing = this.clearing.filter(p => !done(p));
 
     const b = this.board;
     let sparkTotal = 0;
@@ -409,9 +507,9 @@ class Game {
     const moved = b.settle();
     for (const m of moved) this.checkGravityCombo(m);
 
-    // newly exposed core sections
+    // newly exposed core sections (not a goal in puzzle mode)
     const sections = b.exposedSections();
-    if (sections > this.sectionsPrev) {
+    if (sections > this.sectionsPrev && this.mode !== 'puzzle') {
       const gained = sections - this.sectionsPrev;
       this.addScore(gained * (this.mode === 'timetrial' ? 3000 : 1000), false);
       // Free Fable: the freed energy mends you — sections restore hearts
@@ -478,11 +576,12 @@ class Game {
     if (!kill.size) { this.updateHud(); return; }
     this.audio.sfx('magic');
     this.toast('MAGIC!');
+    let mi = 0;
     for (const p of kill) {
       p.state = 'clearing';
       p.clearT = 0;
+      p.clearDelay = (mi++) * 0.04; // magic rips through fast
       p.sparkCredit = false;
-      this.spawnBurstAt(p, '#ffffff', 4);
     }
     this.clearing.push(...kill);
     this.shake = 0.3;
@@ -571,6 +670,7 @@ class Game {
     this.updateClears(dt);
 
     if (this.state === 'play') {
+      this.updateMovement(dt);
       // speed meter runs only in timed modes and only while nothing clears
       if (this.mode !== 'puzzle' && !this.clearing.length) {
         this.speed -= dt;
@@ -634,12 +734,12 @@ class Game {
       }
     }
 
-    // camera chases the cursor
+    // camera hugs the cursor tightly (fast lerp smooths instant tap steps)
     const r = this.renderer, b = this.board;
-    let du = mod(this.cursor.u - r.camU + b.W / 2, b.W) - b.W / 2;
-    let dv = mod(this.cursor.v - r.camV + b.H / 2, b.H) - b.H / 2;
-    r.camU = mod(r.camU + du * Math.min(1, dt * 10), b.W);
-    r.camV = mod(r.camV + dv * Math.min(1, dt * 10), b.H);
+    const cdu = mod(this.cursor.u - r.camU + b.W / 2, b.W) - b.W / 2;
+    const cdv = mod(this.cursor.v - r.camV + b.H / 2, b.H) - b.H / 2;
+    r.camU = mod(r.camU + cdu * Math.min(1, dt * 14), b.W);
+    r.camV = mod(r.camV + cdv * Math.min(1, dt * 14), b.H);
     this.updateHudMeters();
   }
 
@@ -655,16 +755,21 @@ class Game {
       this.renderer.render(this.menuBoard, {});
       return;
     }
-    const held = new Piece(this.heldShape(), this.cursor.u, this.cursor.v, 0);
-    const landZ = this.board.fits(held, held.u, held.v, this.board.occ.length - 1)
-      ? this.board.dropZ(held, held.u, held.v) : this.board.occ.length;
-    let hover = 0;
-    for (const [cu, cv] of held.cells(this.board.W, this.board.H)) hover = Math.max(hover, this.board.topZ(cu, cv));
-    this.renderer.render(this.board, {
-      falling: this.state === 'play' ? held : null,
+    const b = this.board;
+    const held = new Piece(this.heldShape(), Math.round(this.cursor.u), Math.round(this.cursor.v), 0);
+    let landZ = b.occ.length, valid = false;
+    if (b.fits(held, held.u, held.v, b.occ.length - 1)) {
+      landZ = b.dropZ(held, held.u, held.v);
+      held.z = landZ;
+      b.addPiece(held);
+      valid = b.matchGroup(held).length >= RULES.matchMin;
+      b.removePiece(held);
+    }
+    this.renderer.render(b, {
+      ghost: this.state === 'play' ? held : null,
       wild: this.heldType === 'WILD',
       landZ,
-      hover: hover + 1.6,
+      valid,
       fx: { grabbedId: this.grabbed ? this.grabbed.id : 0 },
       particles: this.particles,
       shake: this.shake || 0,
@@ -714,11 +819,16 @@ class Game {
     if (fromClear && this.xcount > 1) this.toastScore(`${pts} x${this.xcount}`);
   }
 
-  toast(str) { this.setMsg(str); this.msgTimer = 1.4; }
+  toast(str) {
+    if (this.state !== 'play') return; // never stomp win/lose messages
+    this.setMsg(str);
+    this.msgTimer = 1.4;
+  }
   toastScore(str) {
     this.particles.text(this.renderer.cx, this.renderer.cy - this.renderer.R - 14, str, '#ffe680', 22);
   }
   setMsg(s) {
+    this.msgTimer = 0; // persistent unless a toast re-arms the timer
     const el = this.$('msg');
     el.textContent = s;
     el.classList.toggle('show', !!s);

@@ -57,24 +57,9 @@ class Input {
     }
   }
 
-  /** Call once per frame; handles key repeat + gamepad. */
+  /** Call once per frame. Movement is velocity-based off `held` (the game
+   *  glides the cursor), so there is no key auto-repeat here anymore. */
   update(dt) {
-    for (const d of ['up', 'down', 'left', 'right']) {
-      if (this.held[d]) {
-        this.dasTimer[d] = (this.dasTimer[d] || 0) + dt;
-        const t = this.dasTimer[d];
-        if (t > DAS_DELAY) {
-          if (!this.dasFired[d] || t > DAS_DELAY + DAS_RATE) {
-            this.queue.push({ type: 'dir', dir: d });
-            this.dasTimer[d] = DAS_DELAY;
-            this.dasFired[d] = true;
-          }
-        }
-      } else {
-        this.dasTimer[d] = 0;
-        this.dasFired[d] = false;
-      }
-    }
     this.pollGamepad();
   }
 
