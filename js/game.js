@@ -23,6 +23,32 @@ const MAGIC_METER_MAX = 14;
 const SCORE_CAP = { normal: 900, power: 10000 };
 const CLEAR_ANIM = 0.25; // per-piece shatter time once its turn in the chain comes
 
+/* Difficulty only changes the speed-meter timer. Records carry the
+ * difficulty they were set on; a record from a lower difficulty never
+ * displaces one from a higher. Untagged records (old saves) count as medium. */
+const DIFFICULTIES = ['easy', 'medium', 'hard'];
+const DIFF_RANK = { easy: 0, medium: 1, hard: 2 };
+const diffRank = (d) => DIFF_RANK[d] !== undefined ? DIFF_RANK[d] : 1;
+
+/** Rescue/Time Trial seconds-per-piece: easy keeps the campaign's gentle
+ *  start, hard its toughest finish, both at half the old slope; medium is
+ *  their midpoint. `m` is the legacy speedMax used as the shape template. */
+function difficultySpeed(m, first, last, diff) {
+  const easy = first - (first - m) * 0.5;
+  const hard = last + (m - last) * 0.5;
+  if (diff === 'easy') return easy;
+  if (diff === 'hard') return hard;
+  return (easy + hard) / 2;
+}
+
+/* Free Fable timers are flat ramps over the campaign, not derived from the
+ * old per-level values: [start, end], interpolated by level index. */
+const FF_SPEED = { easy: [20, 15], medium: [15, 12], hard: [10, 10] };
+function freeFableSpeed(index, count, diff) {
+  const [a, b] = FF_SPEED[diff] || FF_SPEED.medium;
+  return a + (b - a) * (count > 1 ? index / (count - 1) : 0);
+}
+
 class Game {
   constructor(renderer, input, audio) {
     this.renderer = renderer;
@@ -48,9 +74,11 @@ class Game {
         freeUnlocked: p.freeUnlocked || 0, freeDone: p.freeDone || [],
         freeBest: p.freeBest || [],
         highScore: p.highScore || 0,
+        highScoreDiff: p.highScoreDiff || 'medium',
+        difficulty: DIFFICULTIES.includes(p.difficulty) ? p.difficulty : 'medium',
       };
     } catch (e) {
-      return { rescueLevel: 1, puzzleUnlocked: 0, puzzleDone: [], puzzleBest: [], freeUnlocked: 0, freeDone: [], freeBest: [], highScore: 0 };
+      return { rescueLevel: 1, puzzleUnlocked: 0, puzzleDone: [], puzzleBest: [], freeUnlocked: 0, freeDone: [], freeBest: [], highScore: 0, highScoreDiff: 'medium', difficulty: 'medium' };
     }
   }
   saveProgress() {
@@ -99,7 +127,8 @@ class Game {
       const cfg = FREE_FABLE[this.puzzleIndex];
       this.freeCfg = cfg;
       this.levelCfg = {
-        types: cfg.types, wildChance: cfg.wild || 0.06, speedMax: cfg.speedMax,
+        types: cfg.types, wildChance: cfg.wild || 0.06,
+        speedMax: freeFableSpeed(this.puzzleIndex, FREE_FABLE.length, this.progress.difficulty),
         sectionsRequired: cfg.sections, sealed: !!cfg.sealed, bias: cfg.bias,
       };
       buildFreeBoard(this.board, cfg);
@@ -107,6 +136,8 @@ class Game {
     } else {
       const lvl = this.mode === 'timetrial' ? 5 : this.progress.rescueLevel;
       this.levelCfg = rescueLevelCfg(lvl);
+      this.levelCfg.speedMax = difficultySpeed(
+        this.levelCfg.speedMax, rescueLevelCfg(1).speedMax, 8, this.progress.difficulty);
       generateSphere(this.board, this.levelCfg);
       this.cursor = { u: 16, v: 16 };
     }
@@ -218,10 +249,11 @@ class Game {
     }
   }
 
-  /** Smooth glide movement, matching the original's measured feel:
-   *  cursor scrolls at ~3.5 cells/s, drags at ~2.8 cells/s. The logical
-   *  grid cell is always round(cursor); drags step the grid whenever the
-   *  float position crosses a cell boundary. */
+  /** Smooth glide movement. Drags stay at the video-measured ~3.4 cells/s
+   *  (precision work); the free cursor accelerates from 4.5 to 9 cells/s
+   *  over half a second of held travel so holding a key decisively beats
+   *  tapping it. The logical grid cell is always round(cursor); drags step
+   *  the grid whenever the float position crosses a cell boundary. */
   updateMovement(dt) {
     const b = this.board;
     const held = this.input.held;
@@ -229,6 +261,7 @@ class Game {
     const dy = (held.down ? 1 : 0) - (held.up ? 1 : 0);
 
     if (this.grabbed) {
+      this.glideT = 0;
       const p = this.grabbed;
       if (!this.dragPos) this.dragPos = { u: p.u, v: p.v };
       if (dx || dy) {
@@ -261,10 +294,13 @@ class Game {
     this.dragPos = null;
 
     if (dx || dy) {
+      this.glideT = (this.glideT || 0) + dt;
+      const spd = 4.5 + 4.5 * Math.min(1, this.glideT / 0.5);
       const n = Math.hypot(dx, dy);
-      this.cursor.u = mod(this.cursor.u + (dx / n) * 3.5 * dt, b.W);
-      this.cursor.v = mod(this.cursor.v + (dy / n) * 3.5 * dt, b.H);
+      this.cursor.u = mod(this.cursor.u + (dx / n) * spd * dt, b.W);
+      this.cursor.v = mod(this.cursor.v + (dy / n) * spd * dt, b.H);
     } else {
+      this.glideT = 0;
       // idle: settle onto the nearest cell center
       const tu = Math.round(this.cursor.u), tv = Math.round(this.cursor.v);
       this.cursor.u += (tu - this.cursor.u) * Math.min(1, dt * 10);
@@ -680,12 +716,24 @@ class Game {
   }
 
   /** Record best score and fewest pieces for a beaten level. Returns true
-   *  if either record improved. */
+   *  if either record improved. Timed-mode records (freeBest) are tagged
+   *  with difficulty: a higher-difficulty run replaces the record outright,
+   *  a lower one never does, equal falls back to the numbers. Puzzle mode
+   *  has no timer, so puzzleBest stays untagged. */
   updateRecord(key, idx) {
     const rec = this.progress[key][idx] || {};
     const sc = this.score - this.levelStartScore;
     const pc = this.dropsUsed;
     let improved = false;
+    if (key === 'freeBest') {
+      const newRank = diffRank(this.progress.difficulty), oldRank = diffRank(rec.diff);
+      if (rec.score === undefined || newRank > oldRank) {
+        this.progress[key][idx] = { score: sc, pieces: pc, diff: this.progress.difficulty };
+        return true;
+      }
+      if (newRank < oldRank) return false;
+      rec.diff = rec.diff || 'medium';
+    }
     if (rec.score === undefined || sc > rec.score) { rec.score = sc; improved = true; }
     if (rec.pieces === undefined || pc < rec.pieces) { rec.pieces = pc; improved = true; }
     this.progress[key][idx] = rec;
@@ -728,7 +776,12 @@ class Game {
       cur.rescueLevel = Math.max(cur.rescueLevel, p.rescueLevel || 1);
       cur.puzzleUnlocked = Math.max(cur.puzzleUnlocked, p.puzzleUnlocked || 0);
       cur.freeUnlocked = Math.max(cur.freeUnlocked, p.freeUnlocked || 0);
-      cur.highScore = Math.max(cur.highScore, p.highScore || 0);
+      if ((p.highScore || 0) > 0 && (diffRank(p.highScoreDiff) > diffRank(cur.highScoreDiff) ||
+          (diffRank(p.highScoreDiff) === diffRank(cur.highScoreDiff) && p.highScore > cur.highScore))) {
+        cur.highScore = p.highScore;
+        cur.highScoreDiff = p.highScoreDiff || 'medium';
+      }
+      if (DIFFICULTIES.includes(p.difficulty)) cur.difficulty = p.difficulty;
       for (const [doneKey, bestKey] of [['puzzleDone', 'puzzleBest'], ['freeDone', 'freeBest']]) {
         const done = p[doneKey] || [], best = p[bestKey] || [];
         for (let i = 0; i < done.length; i++) {
@@ -737,6 +790,12 @@ class Game {
         for (let i = 0; i < best.length; i++) {
           if (!best[i]) continue;
           const r = cur[bestKey][i] || {};
+          if (bestKey === 'freeBest') {
+            // same precedence as updateRecord: difficulty first, numbers second
+            const inR = diffRank(best[i].diff), curR = r.score === undefined ? -1 : diffRank(r.diff);
+            if (inR > curR) { cur[bestKey][i] = { ...best[i], diff: best[i].diff || 'medium' }; continue; }
+            if (inR < curR) { continue; }
+          }
           if (r.score === undefined || (best[i].score !== undefined && best[i].score > r.score)) r.score = best[i].score;
           if (r.pieces === undefined || (best[i].pieces !== undefined && best[i].pieces < r.pieces)) r.pieces = best[i].pieces;
           cur[bestKey][i] = r;
@@ -753,8 +812,13 @@ class Game {
     this.state = 'lose';
     this.audio.sfx('lose');
     this.setMsg(this.mode === 'timetrial' ? 'TIME UP!' : 'SPHERE LOST — SPACE TO RETRY');
-    if (this.score > this.progress.highScore) {
+    const rank = diffRank(this.progress.difficulty), oldRank = diffRank(this.progress.highScoreDiff);
+    const wins = this.progress.highScore <= 0 ? this.score > 0
+      : rank > oldRank ? this.score > 0
+      : rank === oldRank && this.score > this.progress.highScore;
+    if (wins) {
       this.progress.highScore = this.score;
+      this.progress.highScoreDiff = this.progress.difficulty;
       this.saveProgress();
     }
   }

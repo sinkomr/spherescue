@@ -85,6 +85,11 @@ Faithful rules implemented:
   constellations, a certain crab).
 - **Time Trial** — five minutes, maximum score, core sections worth 3×.
 
+A **difficulty setting** on the main menu (easy / medium / hard) changes
+one thing only: how many seconds the speed meter gives you per piece.
+Records remember the difficulty they were earned on — a lower-difficulty
+run never displaces a higher one.
+
 Progress auto-saves in the browser, records your best score and fewest
 pieces per level, and can be carried between devices with a **save code**
 (main menu → SAVE CODE).
