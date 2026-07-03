@@ -259,12 +259,6 @@ class SphereRenderer {
       if (scale <= 0) return;
     }
     const grabbed = fx && fx.grabbedId === piece.id;
-
-    // crystals: small grounded studs, no side faces
-    if (piece.crystal) {
-      this.collectCrystal(center, du, dv, z, flash, scale, items);
-      return;
-    }
     if (piece.power) flash = Math.max(flash, 0.25 + 0.2 * Math.sin(this.time * 6 + piece.id));
 
     const top = this.projectCorners(du, dv, z + 1);
@@ -352,33 +346,17 @@ class SphereRenderer {
           ctx.lineTo(pts[(e + 1) % 4].x, pts[(e + 1) % 4].y);
           ctx.stroke();
         }
-      },
-    });
-  }
-
-  collectCrystal(center, du, dv, z, flash, scale, items) {
-    const base = this.projectCorners(du, dv, z + 0.06).map(p => lerpPt(p, center, 0.08));
-    const stud = this.projectCorners(du, dv, z + 0.6).map(p => lerpPt(p, center, 0.34));
-    const lamC = (0.35 + 0.5 * this.lambert(center.n)) * layerShade(z);
-    const fill = flash > 0 ? '#ffffff' : tint(SHAPE_COLORS.C.rgb, lamC);
-    items.push({
-      depth: center.depth - 0.001,
-      draw: (ctx) => {
-        let b = base, s = stud;
-        if (scale !== 1) {
-          b = base.map(p => lerpPt(p, center, 1 - scale));
-          s = stud.map(p => lerpPt(p, center, 1 - scale));
+        // crystals: a solid block like any other, marked by a face dot
+        // so it reads as unmatchable filler (not a hole, not a piece)
+        if (piece.crystal) {
+          ctx.fillStyle = 'rgba(22,26,44,0.85)';
+          ctx.beginPath();
+          ctx.arc(mx, my, cellPx * 0.18, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(215,225,255,0.3)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
         }
-        // grounding skirt so exposed crystals don't float
-        ctx.fillStyle = 'rgba(4,6,14,0.55)';
-        poly(ctx, b);
-        ctx.fill();
-        ctx.fillStyle = fill;
-        poly(ctx, s);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(220,230,255,0.35)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
       },
     });
   }
