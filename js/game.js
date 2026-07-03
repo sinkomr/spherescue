@@ -115,10 +115,14 @@ class Game {
     this._lastCell = null;
     this.levelStartScore = this.score || 0;
     this.dropsUsed = 0;
+    this.fixedQueue = false;
 
     if (this.mode === 'puzzle') {
       const cfg = PUZZLES[this.puzzleIndex];
-      this.levelCfg = { types: REAL_SHAPES, wildChance: 1, speedMax: 0, sectionsRequired: 0 };
+      // some puzzles fix the drop order (cfg.queue) instead of all-wild;
+      // in those, grabs are free (any shape) — the drops are the script
+      this.fixedQueue = !!cfg.queue;
+      this.levelCfg = { types: REAL_SHAPES, wildChance: this.fixedQueue ? 0 : 1, speedMax: 0, sectionsRequired: 0 };
       loadPuzzle(this.board, cfg);
       this.drags = cfg.drags;
       this.drops = cfg.drops;
@@ -146,9 +150,15 @@ class Game {
     this.speed = this.levelCfg.speedMax;
     this.queue = [];
     this.heldType = null;
-    this.spawnPiece();
-    this.spawnPiece();
-    this.spawnPiece();
+    if (this.fixedQueue) {
+      // the drop order is the level's script: consume it, never refill
+      this.queue = PUZZLES[this.puzzleIndex].queue.slice();
+      this.spawnPiece();
+    } else {
+      this.spawnPiece();
+      this.spawnPiece();
+      this.spawnPiece();
+    }
     this.renderer.camU = this.cursor.u;
     this.renderer.camV = this.cursor.v;
     this.renderer.zoom = 1;
@@ -168,6 +178,12 @@ class Game {
   }
 
   spawnPiece() {
+    if (this.fixedQueue) {
+      // exhausted queue leaves a phantom wild: undropables (drops are 0
+      // by then) but it keeps free-grabbing alive for the last drags
+      this.heldType = this.queue.shift() || 'WILD';
+      return;
+    }
     while (this.queue.length < 3) this.queue.push(this.pickType());
     this.heldType = this.queue.shift();
     this.queue.push(this.pickType());
@@ -376,7 +392,8 @@ class Game {
     for (const [cu, cv] of p.cells(this.board.W, this.board.H)) {
       if (this.board.at(cu, cv, p.z + 1)) return;
     }
-    if (this.heldType !== 'WILD' && p.type !== this.heldType) { this.audio.sfx('bad'); return; }
+    // set-order puzzles script the drops but leave your hands free
+    if (this.heldType !== 'WILD' && !this.fixedQueue && p.type !== this.heldType) { this.audio.sfx('bad'); return; }
     this.grabbed = p;
     this.dragPos = { u: p.u, v: p.v };
     this.audio.sfx('slide');
