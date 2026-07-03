@@ -417,13 +417,15 @@ class Game {
     let pts = 0;
     const mult = Math.max(1, this.xcount);
     for (const p of group) {
-      pts += Math.min(p.power ? 1000 * mult : 100 * mult, p.power ? SCORE_CAP.power : SCORE_CAP.normal);
+      p.chainValue = Math.min(p.power ? 1000 * mult : 100 * mult, p.power ? SCORE_CAP.power : SCORE_CAP.normal);
+      pts += p.chainValue;
     }
     this.addScore(pts, true);
 
     // The chain rolls piece by piece like the original (~200ms apart),
     // spreading outward from the triggering piece. Pieces flash white
     // while queued, then shatter in turn. The board stays interactive.
+    if (!this.clearing.length) { this.chainCount = 0; this.chainTotal = 0; } // fresh chain
     const seed = group[0];
     const order = [...group].sort((a, b) => {
       const da = Math.abs(mod(a.u - seed.u + this.board.W / 2, this.board.W) - this.board.W / 2) +
@@ -479,10 +481,14 @@ class Game {
     for (const p of this.clearing) {
       const was = p.clearT;
       p.clearT += dt;
-      // pop sound + debris the moment each piece starts shattering
+      // pop sound + debris the moment each piece starts shattering,
+      // plus the running chain tally like the original's HUD
       if (was < (p.clearDelay || 0) && p.clearT >= (p.clearDelay || 0) && !p.crystal) {
         this.audio.sfx('move');
         this.spawnBurstAt(p, SHAPE_COLORS[p.type].top, 8);
+        this.chainCount = (this.chainCount || 0) + 1;
+        this.chainTotal = (this.chainTotal || 0) + (p.chainValue || 0);
+        this.updateChainHud();
       }
       if (done(p)) finished.push(p);
     }
@@ -525,6 +531,7 @@ class Game {
     this.sectionsPrev = sections;
     this.updateHud();
     this.checkWin();
+    if (!this.clearing.length) this.updateChainHud(); // chain over: back to X-Count
   }
 
   /* ---------------- magic items ---------------- */
@@ -677,6 +684,9 @@ class Game {
         this.speed -= dt;
         const f = this.speed / this.levelCfg.speedMax;
         this.renderer.zoom = f > 0.5 ? 1 : 1 + (0.5 - f) * 0.7;
+        // the original dims the whole scene as the timer runs low
+        this.warning = f > 0.5 ? 0 : (0.5 - f) / 0.5;
+        if (f < 0.2) this.warning = Math.min(1, this.warning + 0.15 * Math.sin(this.renderer.time * 6));
         if (this.speed <= 0) {
           this.toast('TOO SLOW!');
           this.drop(); // force-drop wherever the piece is
@@ -780,6 +790,7 @@ class Game {
       fx: { grabbedId: this.grabbed ? this.grabbed.id : 0, dragDu, dragDv },
       particles: this.particles,
       shake: this.shake || 0,
+      warning: (this.state === 'play' && !this.clearing.length) ? (this.warning || 0) : 0,
       coreGhost: this.mode === 'freefable' && this.levelCfg.sealed,
       coreRobot: this.mode === 'rescue' || (this.mode === 'freefable' && !this.levelCfg.sealed),
     });
@@ -888,11 +899,25 @@ class Game {
     }
 
     // combo / magic
-    this.$('combo').textContent = this.xcount > 1 ? `x${this.xcount}` : '—';
-    this.$('combo').classList.toggle('dim', this.xcount <= 1);
+    this.updateChainHud();
     this.$('magic-name').textContent = this.magicItem ? MAGIC_ITEMS[this.magicItem] : '—';
     this.$('magic-name').classList.toggle('dim', !this.magicItem);
     this.$('magic-fill').style.width = `${this.magicMeter / MAGIC_METER_MAX * 100}%`;
+  }
+
+  /** Chain counter + running tally while a chain rolls; X-Count otherwise. */
+  updateChainHud() {
+    const combo = this.$('combo'), chain = this.$('chain');
+    if (this.clearing.length && this.chainCount) {
+      combo.textContent = `${this.chainCount}`;
+      combo.classList.remove('dim');
+      chain.textContent = `+${this.chainTotal.toLocaleString()}`;
+      chain.classList.remove('dim');
+    } else {
+      combo.textContent = this.xcount > 1 ? `x${this.xcount}` : '—';
+      combo.classList.toggle('dim', this.xcount <= 1);
+      chain.textContent = '';
+    }
   }
 
   updateHudMeters() {

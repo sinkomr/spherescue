@@ -468,6 +468,11 @@ class SphereRenderer {
     if (opts && opts.coreGhost) drawMythosGhost(ctx, this.cx, this.cy, this.R, this.time);
     if (opts && opts.coreRobot) this.drawCoreRobot();
     this.drawBoard(board, opts && opts.fx);
+    if (opts && opts.warning) {
+      // danger dim: the scene darkens as the speed meter empties
+      ctx.fillStyle = `rgba(12,4,28,${(opts.warning * 0.34).toFixed(3)})`;
+      ctx.fillRect(0, 0, w, h);
+    }
     if (opts && opts.ghost) {
       this.wildHeld = !!opts.wild;
       this.drawGhost(board, opts.ghost, opts.landZ, opts.valid);
