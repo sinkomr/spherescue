@@ -185,7 +185,18 @@ class Game {
       }
     }
     // release the grabbed piece when the button is let go or it vanished
-    if (this.grabbed && (!this.input.held.grab || this.grabbed.state !== 'resting')) this.grabbed = null;
+    if (this.grabbed && (!this.input.held.grab || this.grabbed.state !== 'resting')) {
+      const p = this.grabbed;
+      this.grabbed = null;
+      if (p.fused && p.state === 'resting') this.detonateFuse(p);
+    }
+  }
+
+  /** A carried fuse blows where it's released, taking its group with it. */
+  detonateFuse(piece) {
+    piece.fused = false;
+    const group = this.board.matchGroup(piece);
+    this.beginClear(group, 'fuse');
   }
 
   handleDir(dir) {
@@ -294,7 +305,23 @@ class Game {
     }
 
     const p = this.board.topPiece(u, v);
-    if (!p || p.crystal || p.state !== 'resting') return;
+    if (!p || p.crystal) return;
+    // fuse-carry: a flashing power piece can be snatched mid-chain and
+    // hauled to a new group before it blows (the original's fuse combo)
+    if (p.state === 'clearing') {
+      if (!p.power || p.clearT >= (p.clearDelay || 0)) return; // too late
+      this.clearing = this.clearing.filter(q => q !== p);
+      p.state = 'resting';
+      p.clearT = 0;
+      p.fused = true;
+      p.fuseT = 0;
+      this.grabbed = p;
+      this.dragPos = { u: p.u, v: p.v };
+      this.audio.sfx('magic');
+      this.toast('FUSE CARRIED!');
+      return;
+    }
+    if (p.state !== 'resting') return;
     // must be fully on top (nothing above any of its cells)
     for (const [cu, cv] of p.cells(this.board.W, this.board.H)) {
       if (this.board.at(cu, cv, p.z + 1)) return;
@@ -411,7 +438,7 @@ class Game {
     let powerCount = 0;
     for (const p of group) if (p.power) powerCount++;
 
-    if (kind === 'gravity') this.xcount = Math.min(10, this.xcount + 1);
+    if (kind === 'gravity' || kind === 'fuse') this.xcount = Math.min(10, this.xcount + 1);
     this.xcount = Math.min(10, this.xcount + powerCount);
 
     let pts = 0;
@@ -457,14 +484,15 @@ class Game {
     if (group.length >= 20) {
       this.earnMagic();
     } else {
-      this.magicMeter += (kind === 'gravity' ? 3 : 0) + (group.length >= 6 ? 1 : 0);
+      this.magicMeter += (kind === 'gravity' || kind === 'fuse' ? 3 : 0) + (group.length >= 6 ? 1 : 0);
       if (this.magicMeter >= MAGIC_METER_MAX) { this.magicMeter = 0; this.earnMagic(); }
     }
     if (powerCount > 0 || kind !== 'gravity') this.speed = this.levelCfg.speedMax;
 
     this.comboFlash = 1;
-    this.audio.sfx(kind === 'gravity' ? 'combo' : 'clear', Math.min(group.length, 8));
+    this.audio.sfx(kind === 'drop' ? 'clear' : 'combo', Math.min(group.length, 8));
     if (kind === 'gravity') this.toast('GRAVITY COMBO!');
+    if (kind === 'fuse') this.toast('FUSE COMBO!');
     this.updateHud();
   }
 
