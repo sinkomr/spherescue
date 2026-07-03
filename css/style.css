@@ -185,19 +185,41 @@ button.back { margin-top: 8px; font-size: 15px; padding: 8px 30px; }
 #touch-controls button.pressed { background: rgba(90, 110, 230, 0.65); border-color: #43e5c5; }
 #touch-controls button span { font-size: 9px; letter-spacing: 1px; color: #8fa0e8; margin-top: 1px; }
 
-#tc-dpad {
+#tc-stick {
   position: absolute; left: 14px; bottom: 18px;
   width: 168px; height: 168px;
-  display: grid;
-  grid-template-areas: ". up ." "left . right" ". down .";
-  grid-template-columns: 56px 56px 56px;
-  grid-template-rows: 56px 56px 56px;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  border-radius: 50%;
+  background: rgba(24, 28, 66, 0.55);
+  border: 2px solid rgba(120, 140, 255, 0.45);
+  backdrop-filter: blur(2px);
 }
-.tc-dir { font-size: 20px; border-radius: 14px !important; }
-.tc-dir[data-dir="up"]    { grid-area: up; }
-.tc-dir[data-dir="down"]  { grid-area: down; }
-.tc-dir[data-dir="left"]  { grid-area: left; }
-.tc-dir[data-dir="right"] { grid-area: right; }
+/* tick ring: the step/glide boundary (GLIDE in touchui.js) */
+#tc-stick::before {
+  content: '';
+  position: absolute; inset: 27%; /* = GLIDE boundary: 0.55 * (r-14px) travel */
+  border-radius: 50%;
+  border: 1px dashed rgba(120, 140, 255, 0.35);
+  pointer-events: none;
+}
+#tc-stick.active { border-color: #43e5c5; }
+#tc-knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 64px; height: 64px; margin: -32px 0 0 -32px;
+  border-radius: 50%;
+  background: rgba(90, 110, 230, 0.55);
+  border: 2px solid rgba(160, 175, 255, 0.7);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  transition: transform 90ms ease-out;
+  pointer-events: none;
+}
+#tc-stick.active #tc-knob {
+  transition: none;
+  background: rgba(90, 110, 230, 0.8);
+  border-color: #43e5c5;
+}
 
 #tc-actions { position: absolute; right: 14px; bottom: 18px; width: 175px; height: 190px; }
 #tc-drop {
@@ -236,6 +258,6 @@ body.touch .hint { display: none; }
 body.touch .key-hint { display: none; }
 
 @media (orientation: landscape) {
-  body.touch #tc-dpad { bottom: 50%; transform: translateY(50%); }
+  body.touch #tc-stick { bottom: 50%; transform: translateY(50%); }
   body.touch #tc-actions { bottom: 50%; transform: translateY(50%); }
 }

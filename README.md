@@ -25,9 +25,9 @@ python3 -m http.server 8000
 
 | Action | Keyboard | Gamepad | Touch |
 |---|---|---|---|
-| Move / scroll sphere | Arrows / WASD | D-pad or stick | swipe |
-| Drop piece | Space / Z / Enter | A | tap |
-| Grab & drag piece (hold) | Shift / X | B (hold) | two-finger tap toggles |
+| Move / scroll sphere | Arrows / WASD | D-pad or stick | joystick (small pull = one step, further = faster) or swipe the sphere |
+| Drop piece | Space / Z / Enter | A | DROP button |
+| Grab & drag piece (hold) | Shift / X | B (hold) | hold GRAB + joystick |
 | Fire magic | C | X | — |
 | Reset puzzle | R | Y | — |
 | Pause | Esc / P | Start | — |

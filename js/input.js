@@ -19,6 +19,7 @@ class Input {
   constructor(canvas) {
     this.held = {};        // action -> bool
     this.queue = [];       // one-shot actions
+    this.analog = null;    // {x, y, m} from the touch joystick's glide zone
     this.anyKey = false;
     this.padButtons = {};
 

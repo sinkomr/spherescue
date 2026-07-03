@@ -257,8 +257,17 @@ class Game {
   updateMovement(dt) {
     const b = this.board;
     const held = this.input.held;
-    const dx = (held.right ? 1 : 0) - (held.left ? 1 : 0);
-    const dy = (held.down ? 1 : 0) - (held.up ? 1 : 0);
+    let dx = (held.right ? 1 : 0) - (held.left ? 1 : 0);
+    let dy = (held.down ? 1 : 0) - (held.up ? 1 : 0);
+    // touch joystick glide zone: direction from the stick, speed from how
+    // far it's pulled (m in 0..1) — slow at the tick ring, fast at the rim
+    let cursorSpd = null, dragSpd = null;
+    const an = this.input.analog;
+    if (!dx && !dy && an) {
+      dx = an.x; dy = an.y;
+      cursorSpd = 2.5 + 7.5 * an.m * an.m;
+      dragSpd = 1.7 + 2.8 * an.m;
+    }
 
     if (this.grabbed) {
       this.glideT = 0;
@@ -266,8 +275,9 @@ class Game {
       if (!this.dragPos) this.dragPos = { u: p.u, v: p.v };
       if (dx || dy) {
         const n = Math.hypot(dx, dy);
-        this.dragPos.u += (dx / n) * 3.4 * dt;
-        this.dragPos.v += (dy / n) * 3.4 * dt;
+        const spd = dragSpd !== null ? dragSpd : 3.4;
+        this.dragPos.u += (dx / n) * spd * dt;
+        this.dragPos.v += (dy / n) * spd * dt;
       } else {
         // ease back onto the piece's cell
         this.dragPos.u += (p.u - this.dragPos.u) * Math.min(1, dt * 12);
@@ -295,7 +305,7 @@ class Game {
 
     if (dx || dy) {
       this.glideT = (this.glideT || 0) + dt;
-      const spd = 4.5 + 4.5 * Math.min(1, this.glideT / 0.5);
+      const spd = cursorSpd !== null ? cursorSpd : 4.5 + 4.5 * Math.min(1, this.glideT / 0.5);
       const n = Math.hypot(dx, dy);
       this.cursor.u = mod(this.cursor.u + (dx / n) * spd * dt, b.W);
       this.cursor.v = mod(this.cursor.v + (dy / n) * spd * dt, b.H);
