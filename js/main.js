@@ -128,6 +128,11 @@
     }
   });
 
+  $('menu-btn').addEventListener('click', () => {
+    audio.sfx('menu');
+    input.press('pause');
+  });
+
   game.onPause = () => show('pause');
   game.onQuitToMenu = (returnTo) => {
     if (returnTo === 'puzzle') { buildPuzzleGrid(); show('puzzle-select'); }

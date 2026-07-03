@@ -60,6 +60,18 @@ html, body {
 
 #next { display: block; margin-top: 4px; }
 
+#menu-btn {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  pointer-events: auto;
+  font-family: inherit; font-size: 12px; letter-spacing: 2px; font-weight: bold;
+  color: #aab6ee; background: rgba(10, 8, 40, 0.72);
+  border: 1px solid rgba(120, 140, 255, 0.35); border-radius: 8px;
+  padding: 7px 16px; cursor: pointer;
+  backdrop-filter: blur(3px);
+}
+#menu-btn:hover { color: #fff; border-color: #43e5c5; box-shadow: 0 0 10px rgba(67,229,197,.35); }
+body.touch #menu-btn { display: none; } /* touch UI has its own pause button */
+
 #msg {
   position: absolute; left: 50%; top: 14%;
   transform: translateX(-50%);
