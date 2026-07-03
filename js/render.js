@@ -37,7 +37,7 @@ const SHAPE_COLORS = {
   O4: mk('#3f7fe8'),  // blue square
   T4: mk('#e8433f'),  // red T
   S4: mk('#3fd4e8'),  // cyan Z
-  C:  mk('#8a93a8'),  // grey crystal
+  C:  mk('#8f7cb8'),  // violet crystal, like the original's filler
 };
 function mk(hex) {
   const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
@@ -164,6 +164,39 @@ class SphereRenderer {
     ctx.restore();
   }
 
+  /** The trapped robot peeking out from inside the core — visible only
+   *  through the holes you dig, like the original. */
+  drawCoreRobot() {
+    const ctx = this.ctx, t = this.time;
+    const x = this.cx, y = this.cy;
+    const blink = (Math.sin(t * 1.1) > 0.95) ? 0.15 : 1;
+    ctx.save();
+    // dim round body silhouette
+    ctx.fillStyle = 'rgba(70,90,140,0.35)';
+    ctx.beginPath();
+    ctx.arc(x, y + this.R * 0.04, this.R * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // big friendly eyes that follow the drift a little
+    const ex = Math.sin(t * 0.7) * this.R * 0.02;
+    for (const s of [-1, 1]) {
+      ctx.fillStyle = 'rgba(235,240,255,0.75)';
+      ctx.beginPath();
+      ctx.ellipse(x + s * this.R * 0.09 + ex, y - this.R * 0.03, this.R * 0.055, this.R * 0.055 * blink, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(25,30,60,0.9)';
+      ctx.beginPath();
+      ctx.ellipse(x + s * this.R * 0.09 + ex * 1.5, y - this.R * 0.03, this.R * 0.024, this.R * 0.024 * blink, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // little smile
+    ctx.strokeStyle = 'rgba(235,240,255,0.4)';
+    ctx.lineWidth = Math.max(1.5, this.R * 0.012);
+    ctx.beginPath();
+    ctx.arc(x + ex, y + this.R * 0.08, this.R * 0.06, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   /** Build draw list for the board and overlays, then paint far-to-near. */
   drawBoard(board, fx) {
     const { W, H } = board;
@@ -249,6 +282,11 @@ class SphereRenderer {
 
   collectBlock(board, piece, u, v, du, dv, z, items, fx) {
     const col = SHAPE_COLORS[piece.type];
+    // a grabbed piece renders mid-glide between cells, like the original
+    if (fx && fx.grabbedId === piece.id) {
+      du += fx.dragDu || 0;
+      dv += fx.dragDv || 0;
+    }
     const center = this.project(du, dv, z + 1);
     if (center.depth <= 0.04) return;
 
@@ -428,6 +466,7 @@ class SphereRenderer {
     this.drawBackground(w, h);
     this.drawCore();
     if (opts && opts.coreGhost) drawMythosGhost(ctx, this.cx, this.cy, this.R, this.time);
+    if (opts && opts.coreRobot) this.drawCoreRobot();
     this.drawBoard(board, opts && opts.fx);
     if (opts && opts.ghost) {
       this.wildHeld = !!opts.wild;

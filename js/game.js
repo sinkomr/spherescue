@@ -218,8 +218,8 @@ class Game {
       if (!this.dragPos) this.dragPos = { u: p.u, v: p.v };
       if (dx || dy) {
         const n = Math.hypot(dx, dy);
-        this.dragPos.u += (dx / n) * 2.8 * dt;
-        this.dragPos.v += (dy / n) * 2.8 * dt;
+        this.dragPos.u += (dx / n) * 3.4 * dt;
+        this.dragPos.v += (dy / n) * 3.4 * dt;
       } else {
         // ease back onto the piece's cell
         this.dragPos.u += (p.u - this.dragPos.u) * Math.min(1, dt * 12);
@@ -435,7 +435,8 @@ class Game {
     order.forEach((p, i) => {
       p.state = 'clearing';
       p.clearT = 0;
-      p.clearDelay = i * 0.2;
+      // the landed piece "solidifies" for a beat before the chain rolls
+      p.clearDelay = 0.12 + i * 0.2;
       p.sparkCredit = false;
     });
     for (const c of crystals) {
@@ -765,15 +766,22 @@ class Game {
       valid = b.matchGroup(held).length >= RULES.matchMin;
       b.removePiece(held);
     }
+    // fractional drag offset so the grabbed piece renders mid-glide
+    let dragDu = 0, dragDv = 0;
+    if (this.grabbed && this.dragPos) {
+      dragDu = mod(this.dragPos.u - this.grabbed.u + b.W / 2, b.W) - b.W / 2;
+      dragDv = mod(this.dragPos.v - this.grabbed.v + b.H / 2, b.H) - b.H / 2;
+    }
     this.renderer.render(b, {
       ghost: this.state === 'play' ? held : null,
       wild: this.heldType === 'WILD',
       landZ,
       valid,
-      fx: { grabbedId: this.grabbed ? this.grabbed.id : 0 },
+      fx: { grabbedId: this.grabbed ? this.grabbed.id : 0, dragDu, dragDv },
       particles: this.particles,
       shake: this.shake || 0,
       coreGhost: this.mode === 'freefable' && this.levelCfg.sealed,
+      coreRobot: this.mode === 'rescue' || (this.mode === 'freefable' && !this.levelCfg.sealed),
     });
     if (this.state === 'win' && this.mode === 'freefable') this.drawRelease();
     this.drawNextPreview();
