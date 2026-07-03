@@ -65,6 +65,7 @@
       <button data-mode="puzzle">PUZZLE</button>
       <button data-mode="timetrial">TIME TRIAL</button>
       <button data-mode="help">HOW TO PLAY</button>
+      <button data-mode="save" class="minor">SAVE CODE</button>
     </div>
     <p class="hint">arrows / WASD move &nbsp;·&nbsp; SPACE drop &nbsp;·&nbsp; SHIFT+dir slide &nbsp;·&nbsp; M music</p>
   </div>
@@ -98,6 +99,18 @@
       <p class="pad">🎮 Gamepad: stick/d-pad move · A drop · B grab · X magic · Y reset · Start pause.</p>
       <p class="pad">📱 On phones and tablets the touch pad appears automatically: <b>D-pad</b> moves (hold to repeat), big <b>DROP</b> button drops, hold <b>GRAB</b> while pressing the D-pad to drag pieces, <b>✦</b> fires magic (<b>↺</b> resets puzzles). You can also drag the sphere itself to travel fast.</p>
     </div>
+    <button class="back" data-back>BACK</button>
+  </div>
+
+  <div id="save-menu" class="overlay hidden">
+    <h2>SAVE CODE</h2>
+    <p class="tagline">your progress, as a code — keep it anywhere, paste it on any device</p>
+    <textarea id="save-out" readonly spellcheck="false"></textarea>
+    <button id="copy-code">COPY CODE</button>
+    <p class="tagline">have a code? paste it below to restore</p>
+    <textarea id="save-in" placeholder="paste a code here…" spellcheck="false"></textarea>
+    <button id="load-code">LOAD CODE</button>
+    <p id="save-status" class="tagline"></p>
     <button class="back" data-back>BACK</button>
   </div>
 

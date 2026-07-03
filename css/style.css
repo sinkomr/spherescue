@@ -137,6 +137,18 @@ html, body {
 .help-text .pad { color: #8fa0e8; font-size: 13px; }
 
 button.back { margin-top: 8px; font-size: 15px; padding: 8px 30px; }
+.overlay button.minor { font-size: 14px; padding: 8px 30px; opacity: 0.75; }
+
+#save-menu textarea {
+  width: min(560px, 86vw); height: 74px;
+  background: rgba(10, 8, 40, 0.8);
+  border: 1px solid rgba(120, 140, 255, 0.4);
+  border-radius: 8px;
+  color: #aab6ee; font-family: monospace; font-size: 11px;
+  padding: 8px; resize: none;
+}
+#save-menu button { font-size: 14px; padding: 8px 26px; }
+#save-status { min-height: 18px; color: #43e5c5; }
 
 @media (max-width: 700px) {
   #hud-left .panel, #hud-right .panel { min-width: 80px; padding: 5px 9px; }

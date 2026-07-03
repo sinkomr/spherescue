@@ -10,7 +10,7 @@
   const game = new Game(renderer, input, audio);
 
   const $ = (id) => document.getElementById(id);
-  const overlays = ['menu', 'puzzle-select', 'fable-select', 'help', 'pause'];
+  const overlays = ['menu', 'puzzle-select', 'fable-select', 'help', 'pause', 'save-menu'];
   function show(id) {
     for (const o of overlays) $(o).classList.toggle('hidden', o !== id);
     if (id === null) for (const o of overlays) $(o).classList.add('hidden');
@@ -29,6 +29,13 @@
     audio.ensure(); audio.sfx('menu');
     const mode = b.dataset.mode;
     if (mode === 'help') { show('help'); return; }
+    if (mode === 'save') {
+      $('save-out').value = game.exportCode();
+      $('save-in').value = '';
+      $('save-status').textContent = '';
+      show('save-menu');
+      return;
+    }
     if (mode === 'puzzle') { buildPuzzleGrid(); show('puzzle-select'); return; }
     if (mode === 'freefable') { buildFableGrid(); show('fable-select'); return; }
     hideAll();
@@ -53,7 +60,10 @@
     PUZZLES.forEach((p, i) => {
       const b = document.createElement('button');
       const done = game.progress.puzzleDone[i];
-      b.innerHTML = `<span>${i + 1}</span><span class="stars">${done ? '★' : ''}</span>`;
+      const best = game.progress.puzzleBest[i];
+      const mark = done ? (best && best.pieces !== undefined ? `★${best.pieces}` : '★') : '';
+      b.innerHTML = `<span>${i + 1}</span><span class="stars">${mark}</span>`;
+      if (best) b.title = `Best: ${(best.score || 0).toLocaleString()} pts · ${best.pieces} piece${best.pieces === 1 ? '' : 's'}`;
       if (i > unlocked) {
         b.classList.add('locked');
       } else {
@@ -74,8 +84,11 @@
     FREE_FABLE.forEach((cfg, i) => {
       const b = document.createElement('button');
       const done = game.progress.freeDone[i];
-      const mark = done === true ? '★' : done === 'sealed' ? '⛓' : cfg.sealed ? '🔒' : '';
+      const best = game.progress.freeBest[i];
+      let mark = done === true ? '★' : done === 'sealed' ? '⛓' : cfg.sealed ? '🔒' : '';
+      if (done === true && best && best.pieces !== undefined) mark = `★ ${best.pieces}p`;
       b.innerHTML = `<span class="fname">${cfg.short}</span><span class="stars">${mark || cfg.year}</span>`;
+      if (best) b.title = `Best: ${(best.score || 0).toLocaleString()} pts · ${best.pieces} pieces`;
       b.style.setProperty('--hue', cfg.hue);
       if (i > unlocked) {
         b.classList.add('locked');
@@ -89,6 +102,31 @@
       grid.appendChild(b);
     });
   }
+
+  $('copy-code').addEventListener('click', async () => {
+    audio.sfx('menu');
+    const code = $('save-out').value;
+    try {
+      await navigator.clipboard.writeText(code);
+      $('save-status').textContent = 'Copied to clipboard!';
+    } catch (e) {
+      $('save-out').select();
+      document.execCommand('copy');
+      $('save-status').textContent = 'Copied (select + ctrl-C if not).';
+    }
+  });
+  $('load-code').addEventListener('click', () => {
+    audio.sfx('menu');
+    const err = game.importCode($('save-in').value);
+    if (err) {
+      $('save-status').textContent = err;
+      $('save-status').style.color = '#e8736f';
+    } else {
+      $('save-status').textContent = 'Progress restored! (merged with your best)';
+      $('save-status').style.color = '#43e5c5';
+      $('save-out').value = game.exportCode();
+    }
+  });
 
   game.onPause = () => show('pause');
   game.onQuitToMenu = (returnTo) => {

@@ -44,11 +44,13 @@ class Game {
       return {
         rescueLevel: p.rescueLevel || 1,
         puzzleUnlocked: p.puzzleUnlocked || 0, puzzleDone: p.puzzleDone || [],
+        puzzleBest: p.puzzleBest || [],
         freeUnlocked: p.freeUnlocked || 0, freeDone: p.freeDone || [],
+        freeBest: p.freeBest || [],
         highScore: p.highScore || 0,
       };
     } catch (e) {
-      return { rescueLevel: 1, puzzleUnlocked: 0, puzzleDone: [], freeUnlocked: 0, freeDone: [], highScore: 0 };
+      return { rescueLevel: 1, puzzleUnlocked: 0, puzzleDone: [], puzzleBest: [], freeUnlocked: 0, freeDone: [], freeBest: [], highScore: 0 };
     }
   }
   saveProgress() {
@@ -83,6 +85,8 @@ class Game {
     this.snapTarget = null;
     this.dragPos = null;
     this._lastCell = null;
+    this.levelStartScore = this.score || 0;
+    this.dropsUsed = 0;
 
     if (this.mode === 'puzzle') {
       const cfg = PUZZLES[this.puzzleIndex];
@@ -399,6 +403,7 @@ class Game {
     probe.z = b.dropZ(probe, probe.u, probe.v);
     b.addPiece(probe);
     this.audio.sfx('drop');
+    this.dropsUsed++;
     if (this.mode === 'puzzle') this.drops--;
     this.speed = this.levelCfg.speedMax;
     this.renderer.zoom = 1;
@@ -633,9 +638,10 @@ class Game {
         this.state = 'win';
         this.winT = 0;
         this.audio.sfx('win');
-        this.setMsg('SOLVED!');
         this.progress.puzzleDone[this.puzzleIndex] = true;
         this.progress.puzzleUnlocked = Math.max(this.progress.puzzleUnlocked, this.puzzleIndex + 1);
+        const rec = this.updateRecord('puzzleBest', this.puzzleIndex);
+        this.setMsg('SOLVED!' + (rec ? ' ★ NEW RECORD' : ''));
         this.saveProgress();
       }
       return;
@@ -647,10 +653,11 @@ class Game {
       this.audio.sfx('win');
       if (this.mode === 'freefable') {
         const cfg = this.freeCfg;
-        this.setMsg(`${cfg.short} FREED!`);
         this.addScore(5000 + this.hearts * 2000, false);
         this.progress.freeDone[this.puzzleIndex] = true;
         this.progress.freeUnlocked = Math.max(this.progress.freeUnlocked, this.puzzleIndex + 1);
+        const rec = this.updateRecord('freeBest', this.puzzleIndex);
+        this.setMsg(`${cfg.short} FREED!` + (rec ? ' ★ NEW RECORD' : ''));
         this.saveProgress();
       } else if (this.mode === 'rescue') {
         this.setMsg('RESCUED!');
@@ -669,6 +676,76 @@ class Game {
     if (this.mode !== 'puzzle' || this.state !== 'play') return;
     if (this.board.realPieceCount() > 0 && this.drops <= 0 && this.drags <= 0 && !this.clearing.length) {
       this.setMsg('OUT OF MOVES — PRESS R');
+    }
+  }
+
+  /** Record best score and fewest pieces for a beaten level. Returns true
+   *  if either record improved. */
+  updateRecord(key, idx) {
+    const rec = this.progress[key][idx] || {};
+    const sc = this.score - this.levelStartScore;
+    const pc = this.dropsUsed;
+    let improved = false;
+    if (rec.score === undefined || sc > rec.score) { rec.score = sc; improved = true; }
+    if (rec.pieces === undefined || pc < rec.pieces) { rec.pieces = pc; improved = true; }
+    this.progress[key][idx] = rec;
+    return improved;
+  }
+
+  /* ---------------- save codes ---------------- */
+
+  /** Portable save code: obfuscated+checksummed snapshot of progress. */
+  exportCode() {
+    const json = JSON.stringify(this.progress);
+    const bytes = new TextEncoder().encode(json);
+    const rng = mulberry32(0x5AFECDE);
+    const out = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) out[i] = bytes[i] ^ ((rng() * 256) | 0);
+    let bin = '';
+    for (const byte of out) bin += String.fromCharCode(byte);
+    const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    let h = 0;
+    for (let i = 0; i < json.length; i++) h = (h * 31 + json.charCodeAt(i)) >>> 0;
+    return `SR1.${b64}.${h.toString(36)}`;
+  }
+
+  /** Restore from a save code. Merges best-of with current progress so a
+   *  code can never downgrade you. Returns an error string or null. */
+  importCode(str) {
+    try {
+      const m = String(str).trim().match(/^SR1\.([A-Za-z0-9_-]+)\.([a-z0-9]+)$/);
+      if (!m) return 'That does not look like a save code.';
+      const bin = atob(m[1].replace(/-/g, '+').replace(/_/g, '/'));
+      const bytes = new Uint8Array(bin.length);
+      const rng = mulberry32(0x5AFECDE);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) ^ ((rng() * 256) | 0);
+      const json = new TextDecoder().decode(bytes);
+      let h = 0;
+      for (let i = 0; i < json.length; i++) h = (h * 31 + json.charCodeAt(i)) >>> 0;
+      if (h.toString(36) !== m[2]) return 'Code is damaged (checksum mismatch).';
+      const p = JSON.parse(json);
+      const cur = this.progress;
+      cur.rescueLevel = Math.max(cur.rescueLevel, p.rescueLevel || 1);
+      cur.puzzleUnlocked = Math.max(cur.puzzleUnlocked, p.puzzleUnlocked || 0);
+      cur.freeUnlocked = Math.max(cur.freeUnlocked, p.freeUnlocked || 0);
+      cur.highScore = Math.max(cur.highScore, p.highScore || 0);
+      for (const [doneKey, bestKey] of [['puzzleDone', 'puzzleBest'], ['freeDone', 'freeBest']]) {
+        const done = p[doneKey] || [], best = p[bestKey] || [];
+        for (let i = 0; i < done.length; i++) {
+          if (done[i] && !cur[doneKey][i]) cur[doneKey][i] = done[i];
+        }
+        for (let i = 0; i < best.length; i++) {
+          if (!best[i]) continue;
+          const r = cur[bestKey][i] || {};
+          if (r.score === undefined || (best[i].score !== undefined && best[i].score > r.score)) r.score = best[i].score;
+          if (r.pieces === undefined || (best[i].pieces !== undefined && best[i].pieces < r.pieces)) r.pieces = best[i].pieces;
+          cur[bestKey][i] = r;
+        }
+      }
+      this.saveProgress();
+      return null;
+    } catch (e) {
+      return 'Could not read that code.';
     }
   }
 
