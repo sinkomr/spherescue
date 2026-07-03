@@ -15,15 +15,10 @@ const KEYMAP = {
   Escape: 'pause', KeyP: 'pause', KeyM: 'music',
 };
 
-const DAS_DELAY = 0.16;  // seconds before auto-repeat
-const DAS_RATE = 0.055;  // seconds between repeats
-
 class Input {
   constructor(canvas) {
     this.held = {};        // action -> bool
     this.queue = [];       // one-shot actions
-    this.dasTimer = {};    // dir -> time held
-    this.dasFired = {};
     this.anyKey = false;
     this.padButtons = {};
 
@@ -50,8 +45,6 @@ class Input {
   press(a) {
     if (['up', 'down', 'left', 'right'].includes(a)) {
       this.queue.push({ type: 'dir', dir: a });
-      this.dasTimer[a] = 0;
-      this.dasFired[a] = false;
     } else {
       this.queue.push({ type: a });
     }

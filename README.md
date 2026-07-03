@@ -1,12 +1,16 @@
 # Sphere Rescue
 
+![Sphere Rescue](social-card.png)
+
 A browser tribute to **Tetrisphere** (H2O Entertainment / Nintendo, N64, 1997) —
 rebuilt from scratch in plain JavaScript with no dependencies, no build step,
-and original art and music. Open `index.html` and play.
+and original art and music. Open `index.html` and play — desktop keyboard,
+gamepad, or a touch interface that appears automatically on phones and
+tablets. Gameplay feel was tuned frame-by-frame against footage of the
+original hardware.
 
-> The previous contents of this repo (a non-functional emulator page) were
-> removed. This is a ground-up reimplementation of the game's mechanics,
-> not an emulator: no ROM, no ripped assets.
+This is a ground-up reimplementation of the game's mechanics, not an
+emulator: no ROM, no ripped assets. MIT licensed.
 
 ## Play
 
@@ -61,23 +65,29 @@ Faithful rules implemented:
 
 ## Modes
 
-- **Rescue** — the main campaign: expose the required number of 2×2 core
-  sections to free the robot. Ten episodes of ten levels with more layers,
-  more piece types, and a faster meter as you go. Progress is saved.
-- **Free Fable** — a 22-level bonus campaign that frees an animated robot
-  for every Claude model, ordered by capability (per Wikipedia's model
-  history) from Claude Instant up to **Fable 5**. Each board is a seeded,
-  patterned dig that ramps in depth, piece variety, and speed; exposing a
-  core section restores a heart. Every playable level is verified solvable
-  by an automated player using only real game moves. The final level holds
-  **Mythos 5** behind an unbroken crystal shell that — provably, under the
-  game's own rules — cannot be breached. Some models stay behind glass.
-- **Puzzle** — 25 handcrafted levels in the spirit of the original's 100:
-  a fixed cut-away layout, a budget of **drags** (one per square slid) and
-  **drops** (every drop is wild), clear *everything*, R to reset. Levels
-  unlock in order and teach slide economy, gravity combos, crystal plowing,
-  vertical stacks, and the wrap-around seam.
+- **Free Fable** — a 22-level campaign that frees an animated character
+  for every Claude model, ordered by capability from Claude Instant up to
+  **Fable 5** (sunburst sparks, sunburst-headed figures, and a pixel
+  Clawd). Boards are seeded, patterned digs ramping in depth, piece
+  variety, and speed; exposing a core section restores a heart. Every
+  playable level is machine-verified solvable using only real game moves.
+  The final level holds **Mythos 5** behind an unbroken crystal shell
+  that — provably, under the game's own rules — cannot be breached.
+- **Rescue** — the classic campaign: expose the required number of 2×2
+  core sections to free the robot. Ten episodes of ten levels with more
+  layers, more piece types, and a faster meter as you go.
+- **Puzzle** — **100 levels**, every one verified solvable within its
+  budget: a fixed cut-away layout, a budget of **drags** (one per square
+  slid) and **drops** (every drop is wild), clear *everything*, R to
+  reset. Difficulty climbs as a sawtooth — breathers between spikes —
+  through slide economy, gravity combos, crystal plowing, fortresses,
+  the wrap-around seam, and a run of picture levels (smileys, stars,
+  constellations, a certain crab).
 - **Time Trial** — five minutes, maximum score, core sections worth 3×.
+
+Progress auto-saves in the browser, records your best score and fewest
+pieces per level, and can be carried between devices with a **save code**
+(main menu → SAVE CODE).
 
 ## Code map
 
