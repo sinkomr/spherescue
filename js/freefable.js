@@ -88,7 +88,7 @@ const FREE_FABLE = [
     types: ['O4', 'B3', 'V3', 'L3', 'T4', 'S4'],  layers: 5, mask: 'full',    cover: 0.85, sections: 7, speedMax: 11, seed: 119, wild: 0.09, porous: 0.4, bias: 0.9 },
   { name: 'Claude Sonnet 5',   short: 'SONNET 5',   family: 'sonnet5', hue: '#7fd8e8', year: "'26",
     types: ['O4', 'B3', 'V3', 'L3', 'T4', 'S4'],  layers: 5, mask: 'rings',   cover: 0.9, sections: 7, speedMax: 10.5, seed: 320, wild: 0.09, porous: 0.4, bias: 0.9 },
-  { name: 'Claude Fable 5',    short: 'FABLE 5',    family: 'fable',   hue: '#ffdf7f', year: "'26",
+  { name: 'Claude Fable 5',    short: 'FABLE 5',    family: 'fable',   hue: '#e2896b', year: "'26",
     types: ['O4', 'B3', 'V3', 'L3', 'T4', 'S4'],  layers: 6, mask: 'spiral',  cover: 0.9, sections: 7, speedMax: 10, seed: 127, wild: 0.11, porous: 0.55, bias: 0.92 },
   { name: 'Claude Mythos 5',   short: 'MYTHOS 5',   family: 'mythos',  hue: '#8f6fff', year: "'26",
     types: ['O4', 'B3', 'V3', 'L3', 'T4', 'S4'],  layers: 3, mask: 'full',    cover: 0.9, sections: 1,  speedMax: 14, seed: 122,
@@ -186,6 +186,32 @@ function drawRobot(ctx, x, y, r, t, cfg) {
     ctx.beginPath();
     ctx.arc(x, y, r * (1 + i * 0.28 + 0.05 * Math.sin(t * 3 + i)), 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // The cast is Anthropic-flavored: sunburst sparks (the logo come alive),
+  // sunburst-headed figures (Fable's kin), and little crabs (the mascot).
+  switch (cfg.family) {
+    case 'fable':
+      drawFigure(ctx, x, y, r * 1.1, t, { shirt: '#b48ad2', jeans: '#7d9fc7', dance: true, sparkles: true });
+      ctx.restore(); return;
+    case 'sonnet':
+      drawFigure(ctx, x, y, r, t, { shirt: '#6f8fd8', jeans: '#46608e', wave: true });
+      ctx.restore(); return;
+    case 'sonnet5':
+      drawFigure(ctx, x, y, r, t, { shirt: '#7fd8e8', jeans: '#3f7080', ring: true });
+      ctx.restore(); return;
+    case 'haiku':
+      drawCrab(ctx, x, y, r, t, { accent: cfg.hue });
+      ctx.restore(); return;
+    case 'opus':
+      drawCrab(ctx, x, y, r * 1.15, t, { accent: cfg.hue, crown: true });
+      ctx.restore(); return;
+    case 'instant':
+      drawSpark(ctx, x, y, r, t, { petals: 9, spin: 2.2, zap: true });
+      ctx.restore(); return;
+    case 'classic':
+      drawSpark(ctx, x, y, r * 1.05, t, { petals: 7, spin: 0.15, dish: true, sepia: true });
+      ctx.restore(); return;
   }
 
   // thruster flame
@@ -306,24 +332,261 @@ function drawRobot(ctx, x, y, r, t, cfg) {
       }
       break;
     }
-    case 'fable': { // halo + orbiting stars
-      ctx.strokeStyle = hexA('#fff2c0', 0.9);
-      ctx.lineWidth = Math.max(2, r * 0.09);
-      ctx.beginPath();
-      ctx.ellipse(x, topY - r * 0.35, r * 0.55, r * 0.16, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = '#fff';
-      for (let i = 0; i < 3; i++) {
-        const a = t * 1.6 + i * 2.094;
-        star(ctx, x + Math.cos(a) * r * 1.5, y + Math.sin(a) * r * 0.55 - r * 0.2, r * 0.14);
-      }
-      break;
-    }
     case 'mythos': { // glowing eyes only — drawn as a ghost elsewhere
       break;
     }
   }
   ctx.restore();
+}
+
+const CLAY = '#d4826a', CLAY_DK = '#7e4434', CREAM = '#faf5ec', INK = '#3a2a28';
+
+/** Shared face: cream disc, happy arched eyes, open smile. */
+function sparkFace(ctx, x, hy, r, dk) {
+  ctx.fillStyle = CREAM;
+  ctx.strokeStyle = dk;
+  ctx.beginPath();
+  ctx.arc(x, hy, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(1.5, r * 0.1);
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(x + s * r * 0.36, hy - r * 0.04, r * 0.17, Math.PI, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.arc(x, hy + r * 0.25, r * 0.46, 0.12 * Math.PI, 0.88 * Math.PI);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** Sunburst petals around a center. */
+function sparkPetals(ctx, x, hy, r, angle, n, clay, dk) {
+  ctx.fillStyle = clay;
+  ctx.strokeStyle = dk;
+  ctx.lineWidth = Math.max(1.5, r * 0.045);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 - Math.PI / 2 + angle;
+    ctx.save();
+    ctx.translate(x, hy);
+    ctx.rotate(a);
+    rounded(ctx, r * 0.28, -r * 0.12, r * 0.72, r * 0.24, r * 0.12);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/** The bare sunburst logo, alive: a floating spark with a face. */
+function drawSpark(ctx, x, y, r, t, o) {
+  const clay = o.sepia ? '#c99a72' : CLAY;
+  const dk = o.sepia ? '#6e4f38' : CLAY_DK;
+  const spin = t * (o.spin || 0.3);
+  ctx.lineCap = 'round';
+  if (o.dish) { // retro antenna dish
+    ctx.strokeStyle = dk;
+    ctx.lineWidth = r * 0.07;
+    ctx.beginPath();
+    ctx.moveTo(x, y - r * 1.05); ctx.lineTo(x, y - r * 1.45);
+    ctx.stroke();
+    ctx.fillStyle = dk;
+    ctx.beginPath();
+    ctx.arc(x, y - r * 1.52, r * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  sparkPetals(ctx, x, y, r, spin, o.petals || 10, clay, dk);
+  sparkFace(ctx, x, y, r * 0.55, dk);
+  if (o.zap) { // zippy lightning trail
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = r * 0.09;
+    const zx = x + Math.cos(t * 2.2 + Math.PI) * r * 1.5;
+    const zy = y + Math.sin(t * 2.2 + Math.PI) * r * 0.8;
+    ctx.beginPath();
+    ctx.moveTo(zx, zy - r * 0.2);
+    ctx.lineTo(zx + r * 0.12, zy);
+    ctx.lineTo(zx - r * 0.06, zy + r * 0.05);
+    ctx.lineTo(zx + r * 0.08, zy + r * 0.28);
+    ctx.stroke();
+  }
+}
+
+/** The little crab mascot: pinching claws, eye stalks, scuttle. */
+function drawCrab(ctx, x, y, r, t, o) {
+  x += Math.sin(t * 2.8) * r * 0.1; // side-to-side scuttle
+  ctx.lineCap = 'round';
+  // walking legs (behind body), three per side, wiggling
+  ctx.strokeStyle = CLAY_DK;
+  ctx.lineWidth = r * 0.07;
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < 3; i++) {
+      const wig = Math.sin(t * 6 + i * 1.1 + (s > 0 ? 0 : Math.PI)) * r * 0.05;
+      ctx.beginPath();
+      ctx.moveTo(x + s * r * 0.45, y + r * 0.02 + i * r * 0.15);
+      ctx.lineTo(x + s * (r * 0.85 + i * r * 0.06), y + r * 0.42 + i * r * 0.14 + wig);
+      ctx.stroke();
+    }
+  }
+  // claw arms
+  ctx.strokeStyle = CLAY;
+  ctx.lineWidth = r * 0.16;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(x + s * r * 0.55, y - r * 0.05);
+    ctx.lineTo(x + s * r * 1.0, y - r * 0.38);
+    ctx.stroke();
+  }
+  // pinching claws (pac-man circles, mouths opening and snapping)
+  for (const s of [-1, 1]) {
+    const cx = x + s * r * 1.08, cy = y - r * 0.45;
+    const mouth = 0.28 + 0.22 * Math.sin(t * 4.2 + (s > 0 ? 0 : Math.PI));
+    const facing = s > 0 ? -Math.PI / 3 : Math.PI + Math.PI / 3;
+    ctx.fillStyle = CLAY;
+    ctx.strokeStyle = CLAY_DK;
+    ctx.lineWidth = Math.max(1.5, r * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r * 0.34, facing + mouth, facing - mouth + Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  // shell
+  ctx.fillStyle = CLAY;
+  ctx.strokeStyle = CLAY_DK;
+  ctx.lineWidth = Math.max(1.5, r * 0.05);
+  ctx.beginPath();
+  ctx.ellipse(x, y + r * 0.05, r * 0.64, r * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // family accent: three shell studs
+  ctx.fillStyle = o.accent || '#fff';
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.arc(x + i * r * 0.24, y - r * 0.12, r * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // eye stalks
+  ctx.strokeStyle = CLAY_DK;
+  ctx.lineWidth = r * 0.06;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(x + s * r * 0.2, y - r * 0.3);
+    ctx.lineTo(x + s * r * 0.28, y - r * 0.68);
+    ctx.stroke();
+  }
+  const blink = (Math.sin(t * 1.3) > 0.97) ? 0.15 : 1;
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(x + s * r * 0.28, y - r * 0.74, r * 0.13, r * 0.13 * blink, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.ellipse(x + s * r * 0.28, y - r * 0.74, r * 0.06, r * 0.06 * blink, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // smile
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(1.5, r * 0.05);
+  ctx.beginPath();
+  ctx.arc(x, y + r * 0.08, r * 0.22, 0.2 * Math.PI, 0.8 * Math.PI);
+  ctx.stroke();
+  // Opus wears the crown
+  if (o.crown) {
+    ctx.fillStyle = o.accent;
+    for (const sx of [-0.32, 0, 0.32]) {
+      ctx.beginPath();
+      ctx.moveTo(x + (sx - 0.1) * r, y - r * 0.88);
+      ctx.lineTo(x + sx * r, y - r * (sx === 0 ? 1.18 : 1.06));
+      ctx.lineTo(x + (sx + 0.1) * r, y - r * 0.88);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+}
+
+/** Sunburst-headed figure (Fable and kin). Options: dance (victory hop,
+ *  pumping fists), wave (one arm saying hello), ring (orbit), sparkles. */
+function drawFigure(ctx, x, y, r, t, o) {
+  // happy hop: the whole figure bounces
+  const hop = o.dance ? Math.abs(Math.sin(t * 2.6)) * r * 0.16 : 0;
+  y -= hop;
+  const hy = y - r * 0.6;                        // head center
+  const spin = t * (o.dance ? 0.35 : 0.12) + Math.sin(t * 2.2) * 0.05;
+  const SHIRT = o.shirt, JEANS = o.jeans, SHOE = '#6b4a3a';
+  ctx.lineCap = 'round';
+
+  // legs (kick apart at the top of each hop when dancing) + shoes
+  const kick = o.dance ? Math.abs(Math.sin(t * 2.6)) * 0.08 : 0;
+  ctx.fillStyle = JEANS;
+  for (const s of [-1, 1]) {
+    ctx.save();
+    ctx.translate(x + s * r * 0.2, y + r * 0.55);
+    ctx.rotate(s * (0.09 + kick));
+    rounded(ctx, -r * 0.14, 0, r * 0.28, r * 0.85, r * 0.12);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = SHOE;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(x + s * r * (0.3 + kick), y + r * 1.42, r * 0.22, r * 0.1, s * kick, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // arms: dancing pumps both fists; wave lifts one; otherwise relaxed
+  const pump = (s) => Math.sin(t * 5.2 + (s > 0 ? 0 : Math.PI)) * r * 0.12;
+  const wave = Math.sin(t * 4) * r * 0.1;
+  const armEnd = (s) => {
+    if (o.dance) return [x + s * r * 1.05, y - r * 0.75 - pump(s)];
+    if (o.wave && s > 0) return [x + s * r * 0.95, y - r * 0.55 - wave];
+    return [x + s * r * 0.52, y + r * 0.55];
+  };
+  ctx.strokeStyle = SHIRT;
+  ctx.lineWidth = r * 0.22;
+  for (const s of [-1, 1]) {
+    const [ax, ay] = armEnd(s);
+    ctx.beginPath();
+    ctx.moveTo(x + s * r * 0.28, y + r * 0.12);
+    ctx.lineTo(ax, ay);
+    ctx.stroke();
+  }
+  ctx.fillStyle = SHIRT;
+  rounded(ctx, x - r * 0.38, y - r * 0.05, r * 0.76, r * 0.72, r * 0.18);
+  ctx.fill();
+  // hands
+  ctx.fillStyle = CREAM;
+  for (const s of [-1, 1]) {
+    const [ax, ay] = armEnd(s);
+    ctx.beginPath();
+    ctx.arc(ax, ay, r * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // orbit ring (Sonnet 5)
+  if (o.ring) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = Math.max(1.5, r * 0.05);
+    ctx.beginPath();
+    ctx.ellipse(x, y + r * 0.25, r * 1.05, r * 0.3, -0.35 + 0.12 * Math.sin(t * 1.8), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // sunburst head + face
+  sparkPetals(ctx, x, hy, r, spin, 11, CLAY, CLAY_DK);
+  sparkFace(ctx, x, hy, r * 0.52, CLAY_DK);
+
+  // sparkles circling the dance
+  if (o.sparkles) {
+    ctx.fillStyle = '#fff2c0';
+    for (let i = 0; i < 3; i++) {
+      const a = t * 1.8 + i * 2.094;
+      star(ctx, x + Math.cos(a) * r * 1.55, y - r * 0.2 + Math.sin(a) * r * 0.9, r * 0.1);
+    }
+  }
 }
 
 /** Faint presence inside the sealed core, visible through gaps. */
