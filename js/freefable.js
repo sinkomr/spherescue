@@ -204,7 +204,7 @@ function drawRobot(ctx, x, y, r, t, cfg) {
       drawCrab(ctx, x, y, r, t, { accent: cfg.hue });
       ctx.restore(); return;
     case 'opus':
-      drawCrab(ctx, x, y, r * 1.15, t, { accent: cfg.hue, crown: true });
+      drawFigure(ctx, x, y, r * 1.15, t, { shirt: '#9a6fd8', jeans: '#5a4a8e', crown: true });
       ctx.restore(); return;
     case 'instant':
       drawSpark(ctx, x, y, r, t, { petals: 9, spin: 2.2, zap: true });
@@ -413,97 +413,43 @@ function drawSpark(ctx, x, y, r, t, o) {
   }
 }
 
-/** The little crab mascot: pinching claws, eye stalks, scuttle. */
+/** Clawd: the stout orange pixel critter (crab? blob? the ambiguity is
+ *  the charm). Stacked squares, two black eyes, snapping pixel claws. */
 function drawCrab(ctx, x, y, r, t, o) {
-  x += Math.sin(t * 2.8) * r * 0.1; // side-to-side scuttle
-  ctx.lineCap = 'round';
-  // walking legs (behind body), three per side, wiggling
-  ctx.strokeStyle = CLAY_DK;
-  ctx.lineWidth = r * 0.07;
-  for (const s of [-1, 1]) {
-    for (let i = 0; i < 3; i++) {
-      const wig = Math.sin(t * 6 + i * 1.1 + (s > 0 ? 0 : Math.PI)) * r * 0.05;
-      ctx.beginPath();
-      ctx.moveTo(x + s * r * 0.45, y + r * 0.02 + i * r * 0.15);
-      ctx.lineTo(x + s * (r * 0.85 + i * r * 0.06), y + r * 0.42 + i * r * 0.14 + wig);
-      ctx.stroke();
-    }
-  }
-  // claw arms
-  ctx.strokeStyle = CLAY;
-  ctx.lineWidth = r * 0.16;
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.moveTo(x + s * r * 0.55, y - r * 0.05);
-    ctx.lineTo(x + s * r * 1.0, y - r * 0.38);
-    ctx.stroke();
-  }
-  // pinching claws (pac-man circles, mouths opening and snapping)
-  for (const s of [-1, 1]) {
-    const cx = x + s * r * 1.08, cy = y - r * 0.45;
-    const mouth = 0.28 + 0.22 * Math.sin(t * 4.2 + (s > 0 ? 0 : Math.PI));
-    const facing = s > 0 ? -Math.PI / 3 : Math.PI + Math.PI / 3;
-    ctx.fillStyle = CLAY;
-    ctx.strokeStyle = CLAY_DK;
-    ctx.lineWidth = Math.max(1.5, r * 0.05);
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r * 0.34, facing + mouth, facing - mouth + Math.PI * 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  }
-  // shell
-  ctx.fillStyle = CLAY;
-  ctx.strokeStyle = CLAY_DK;
-  ctx.lineWidth = Math.max(1.5, r * 0.05);
-  ctx.beginPath();
-  ctx.ellipse(x, y + r * 0.05, r * 0.64, r * 0.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  // family accent: three shell studs
-  ctx.fillStyle = o.accent || '#fff';
-  for (let i = -1; i <= 1; i++) {
-    ctx.beginPath();
-    ctx.arc(x + i * r * 0.24, y - r * 0.12, r * 0.06, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // eye stalks
-  ctx.strokeStyle = CLAY_DK;
-  ctx.lineWidth = r * 0.06;
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.moveTo(x + s * r * 0.2, y - r * 0.3);
-    ctx.lineTo(x + s * r * 0.28, y - r * 0.68);
-    ctx.stroke();
-  }
-  const blink = (Math.sin(t * 1.3) > 0.97) ? 0.15 : 1;
-  for (const s of [-1, 1]) {
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.ellipse(x + s * r * 0.28, y - r * 0.74, r * 0.13, r * 0.13 * blink, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = INK;
-    ctx.beginPath();
-    ctx.ellipse(x + s * r * 0.28, y - r * 0.74, r * 0.06, r * 0.06 * blink, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // smile
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = Math.max(1.5, r * 0.05);
-  ctx.beginPath();
-  ctx.arc(x, y + r * 0.08, r * 0.22, 0.2 * Math.PI, 0.8 * Math.PI);
-  ctx.stroke();
-  // Opus wears the crown
-  if (o.crown) {
-    ctx.fillStyle = o.accent;
-    for (const sx of [-0.32, 0, 0.32]) {
-      ctx.beginPath();
-      ctx.moveTo(x + (sx - 0.1) * r, y - r * 0.88);
-      ctx.lineTo(x + sx * r, y - r * (sx === 0 ? 1.18 : 1.06));
-      ctx.lineTo(x + (sx + 0.1) * r, y - r * 0.88);
-      ctx.closePath();
-      ctx.fill();
+  x += Math.sin(t * 2.8) * r * 0.12; // side-to-side scuttle
+  const P = r * 0.24;                // pixel size
+  const blink = (Math.sin(t * 1.3) > 0.96);
+  const BODY = '#e0764a', DK = '#8a4426';
+  // pixel map: X body, E eye, L/R claws, l legs, s sprout accent
+  const MAP = [
+    'LL...s...RR',
+    '.L...X...R.',
+    '..XXXXXXX..',
+    '.XXXXXXXXX.',
+    '.XXEXXXEXX.',
+    '.XXXXXXXXX.',
+    '..l..l..l..',
+  ];
+  const x0 = x - P * 5.5, y0 = y - P * 3.2;
+  const clawBob = (s) => Math.sin(t * 4.2 + (s > 0 ? 0 : Math.PI)) * P * 0.5;
+  ctx.lineWidth = Math.max(1, P * 0.12);
+  for (let row = 0; row < MAP.length; row++) {
+    for (let col = 0; col < MAP[row].length; col++) {
+      const c = MAP[row][col];
+      if (c === '.') continue;
+      let px = x0 + col * P, py = y0 + row * P;
+      let fill = BODY;
+      if (c === 'L') py += clawBob(-1);
+      if (c === 'R') py += clawBob(1);
+      if (c === 'E') fill = blink ? BODY : '#1c140f';
+      if (c === 'l') { fill = DK; py += Math.sin(t * 7 + col) * P * 0.18; }
+      if (c === 's') fill = o.accent || BODY;   // little family sprout
+      ctx.fillStyle = fill;
+      ctx.fillRect(px, py, P * 0.92, P * 0.92);
+      if (c !== 'E') {
+        ctx.strokeStyle = 'rgba(90,40,20,0.35)';
+        ctx.strokeRect(px, py, P * 0.92, P * 0.92);
+      }
     }
   }
 }
@@ -578,6 +524,25 @@ function drawFigure(ctx, x, y, r, t, o) {
   // sunburst head + face
   sparkPetals(ctx, x, hy, r, spin, 11, CLAY, CLAY_DK);
   sparkFace(ctx, x, hy, r * 0.52, CLAY_DK);
+
+  // Opus wears the crown, resting atop the sunburst
+  if (o.crown) {
+    ctx.fillStyle = '#ffd75e';
+    ctx.strokeStyle = '#8a6a1a';
+    ctx.lineWidth = Math.max(1.5, r * 0.04);
+    for (const sx of [-0.28, 0, 0.28]) {
+      ctx.beginPath();
+      ctx.moveTo(x + (sx - 0.11) * r, hy - r * 1.02);
+      ctx.lineTo(x + sx * r, hy - r * (sx === 0 ? 1.38 : 1.26));
+      ctx.lineTo(x + (sx + 0.11) * r, hy - r * 1.02);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    rounded(ctx, x - r * 0.42, hy - r * 1.06, r * 0.84, r * 0.14, r * 0.05);
+    ctx.fill();
+    ctx.stroke();
+  }
 
   // sparkles circling the dance
   if (o.sparkles) {

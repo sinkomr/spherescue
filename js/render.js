@@ -27,7 +27,7 @@ const VIEW = {
 function norm3(x, y, z) { const l = Math.hypot(x, y, z); return [x / l, y / l, z / l]; }
 
 /** Deeper layers are dimmer — the strongest at-a-glance height cue. */
-function layerShade(z) { return Math.min(1, 0.72 + 0.14 * z); }
+function layerShade(z) { return Math.min(1.05, 0.62 + 0.15 * z); }
 
 /** Per-shape colors, matching the original's color coding. */
 const SHAPE_COLORS = {
@@ -198,24 +198,52 @@ class SphereRenderer {
       this.collectBlock(board, piece, u, v, du, dv, z, items, fx);
     }
     if (!any) {
-      // empty column: darken the exposed core near tall walls so holes
-      // read as pits, not patches
+      // Exposed core: a real floor, like the original — checkerboard
+      // panels with a glowing "speaker" ring on each fully open 2x2
+      // section. Gives the eye a surface to judge depth against (and
+      // shows exactly where sections are).
+      const pts = this.projectCorners(du, dv, 0.03);
+      const checker = ((((u >> 1) + (v >> 1)) % 2) === 0);
       let wall = 0;
       for (const [su, sv] of EDGE_DIR) {
         wall = Math.max(wall, board.topZ(u + su, v + sv));
       }
-      if (wall > 0) {
-        const pts = this.projectCorners(du, dv, 0.02);
-        const alpha = Math.min(0.62, 0.18 + wall * 0.13).toFixed(2);
-        items.push({
-          depth: pts[0].depth - 0.01,
-          draw: (ctx) => {
-            ctx.fillStyle = `rgba(0,2,8,${alpha})`;
-            poly(ctx, pts);
+      const shade = Math.min(0.6, 0.1 + wall * 0.12);
+      // is this cell's whole 2x2 section open? (drawn once, from top-left)
+      const su0 = u & ~1, sv0 = v & ~1;
+      const sectionOpen = (u === su0 && v === sv0) &&
+        board.topZ(su0, sv0) === 0 && board.topZ(su0 + 1, sv0) === 0 &&
+        board.topZ(su0, sv0 + 1) === 0 && board.topZ(su0 + 1, sv0 + 1) === 0;
+      const ring = sectionOpen ? this.project(du + 0.5, dv + 0.5, 0.05) : null;
+      const ringR = ring ? Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) * 0.62 : 0;
+      const time = this.time;
+      items.push({
+        depth: pts[0].depth - 0.01,
+        draw: (ctx) => {
+          ctx.fillStyle = checker ? '#242a54' : '#161a38';
+          poly(ctx, pts);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(100,115,190,0.28)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          if (shade > 0.1) {
+            ctx.fillStyle = `rgba(0,2,8,${shade.toFixed(2)})`;
             ctx.fill();
-          },
-        });
-      }
+          }
+          if (ring) {
+            const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + u + v);
+            ctx.strokeStyle = `rgba(110,190,255,${(0.35 + 0.3 * pulse).toFixed(2)})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(ring.x, ring.y, ringR, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = `rgba(110,190,255,${(0.25 + 0.25 * pulse).toFixed(2)})`;
+            ctx.beginPath();
+            ctx.arc(ring.x, ring.y, ringR * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        },
+      });
     }
   }
 
@@ -375,8 +403,34 @@ class SphereRenderer {
           ctx.fill();
         },
       });
-      // hovering block
+      // light shaft from the hovering piece down to its landing spot —
+      // makes the drop column unambiguous at any height difference
       const hz = hover + bob;
+      const lo = sh, hi = this.projectCorners(du, dv, hz);
+      items.push({
+        depth: 4.5 + lo[0].depth, draw: (ctx) => {
+          for (let e = 0; e < 4; e++) {
+            const e2 = (e + 1) % 4;
+            ctx.fillStyle = 'rgba(180,220,255,0.05)';
+            ctx.beginPath();
+            ctx.moveTo(hi[e].x, hi[e].y);
+            ctx.lineTo(hi[e2].x, hi[e2].y);
+            ctx.lineTo(lo[e2].x, lo[e2].y);
+            ctx.lineTo(lo[e].x, lo[e].y);
+            ctx.closePath();
+            ctx.fill();
+          }
+          ctx.strokeStyle = 'rgba(190,225,255,0.28)';
+          ctx.lineWidth = 1;
+          for (let e = 0; e < 4; e++) {
+            ctx.beginPath();
+            ctx.moveTo(hi[e].x, hi[e].y);
+            ctx.lineTo(lo[e].x, lo[e].y);
+            ctx.stroke();
+          }
+        },
+      });
+      // hovering block
       const topPts = this.projectCorners(du, dv, hz + 0.85);
       const botPts = this.projectCorners(du, dv, hz);
       const col = SHAPE_COLORS[piece.type];
