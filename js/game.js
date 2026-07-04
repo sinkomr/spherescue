@@ -1004,30 +1004,23 @@ class Game {
     const PEEK = 2.0; // seconds spent looking out of the core window
 
     if (t < PEEK) {
-      // porthole: a small round window at the core with the head peeking out
-      const wx = cx, wy = cy + R * 0.03, wr = size * 1.35;
+      // peeking out through the gap in the blocks: just the head, down in
+      // the opened core — the blast hole itself is the window, no chrome
+      const wx = cx, wy = cy + R * 0.04;
+      const headR = size * 0.8;
+      // how far below the clip the body hides, per body plan
+      const drop = { instant: 0, classic: 0, haiku: 0.3 }[cfg.family];
+      const bodyDrop = size * (drop !== undefined ? drop : 0.62);
       ctx.save();
-      ctx.globalAlpha = Math.min(1, t / 0.4);
-      // window glow + rim
-      const glow = ctx.createRadialGradient(wx, wy, wr * 0.2, wx, wy, wr * 1.8);
-      glow.addColorStop(0, 'rgba(255,240,200,0.30)');
-      glow.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.globalAlpha = Math.min(1, t / 0.5);
+      const glow = ctx.createRadialGradient(wx, wy, headR * 0.1, wx, wy, headR * 2.1);
+      glow.addColorStop(0, 'rgba(255,235,190,0.25)');
+      glow.addColorStop(1, 'rgba(255,235,190,0)');
       ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(wx, wy, wr * 1.8, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(wx, wy, wr, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.fillStyle = 'rgba(10, 8, 30, 0.85)';
-      ctx.fill();
-      // the bot sits low in the window: only the head shows, swaying as
-      // if looking around outside
-      const sway = Math.sin(t * 1.7) * wr * 0.18;
-      drawRobot(ctx, wx + sway, wy + size * 1.15, size, t * 0.6, cfg);
-      ctx.restore();
-      ctx.save();
-      ctx.globalAlpha = Math.min(1, t / 0.4);
-      ctx.lineWidth = Math.max(2, R * 0.012);
-      ctx.strokeStyle = cfg.hue;
-      ctx.beginPath(); ctx.arc(wx, wy, wr, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(wx, wy, headR * 2.1, 0, Math.PI * 2); ctx.fill();
+      const sway = Math.sin(t * 1.6) * headR * 0.22;
+      ctx.beginPath(); ctx.arc(wx, wy, headR, 0, Math.PI * 2); ctx.clip();
+      drawRobot(ctx, wx + sway, wy + bodyDrop, size, t * 0.5, cfg);
       ctx.restore();
       return;
     }
