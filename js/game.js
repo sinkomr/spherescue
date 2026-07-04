@@ -58,6 +58,7 @@ class Game {
     this.state = 'idle'; // idle | play | win | lose | done
     this.paused = false;
     this.onPause = () => {};
+    this.onResume = () => {};
     this.onQuitToMenu = () => {};
     this.progress = this.loadProgress();
     this.msgTimer = 0;
@@ -66,7 +67,7 @@ class Game {
 
   loadProgress() {
     try {
-      const p = JSON.parse(localStorage.getItem('sphererescue') || '{}');
+      const p = JSON.parse(localStorage.getItem('spherescue') || '{}');
       return {
         rescueLevel: p.rescueLevel || 1,
         puzzleUnlocked: p.puzzleUnlocked || 0, puzzleDone: p.puzzleDone || [],
@@ -82,7 +83,7 @@ class Game {
     }
   }
   saveProgress() {
-    try { localStorage.setItem('sphererescue', JSON.stringify(this.progress)); } catch (e) { /* private mode */ }
+    try { localStorage.setItem('spherescue', JSON.stringify(this.progress)); } catch (e) { /* private mode */ }
   }
 
   /* ---------------- lifecycle ---------------- */
@@ -213,7 +214,10 @@ class Game {
         continue;
       }
       if (a.type === 'pause') {
-        if (this.state === 'play' && !this.paused) { this.paused = true; this.onPause(); }
+        if (this.state === 'play') {
+          this.paused = !this.paused;
+          if (this.paused) this.onPause(); else this.onResume();
+        }
         continue;
       }
       if (this.paused) continue;
