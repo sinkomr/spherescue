@@ -95,6 +95,11 @@ body.touch #menu-btn { display: none; } /* touch UI has its own pause button */
 }
 .overlay h1 span { color: #43e5c5; text-shadow: 0 0 24px #43e5c5; }
 .overlay h2 { font-size: 34px; letter-spacing: 8px; text-shadow: 0 0 18px #4f6fff; }
+.subbrand {
+  margin: -4px 0 2px; color: #ffd27f; font-weight: bold;
+  font-size: 17px; letter-spacing: 12px;
+  text-shadow: 0 0 14px rgba(255, 210, 127, .6);
+}
 .tagline { color: #8fa0e8; font-size: 15px; }
 
 .menu-items { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }

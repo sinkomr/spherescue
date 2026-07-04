@@ -1,6 +1,6 @@
-# Sphere Rescue
+# Spherescue: Free Fable
 
-![Sphere Rescue](social-card.png)
+![Spherescue: Free Fable](social-card.png)
 
 A browser tribute to **Tetrisphere** (H2O Entertainment / Nintendo, N64, 1997) —
 rebuilt from scratch in plain JavaScript with no dependencies, no build step,
@@ -77,12 +77,13 @@ Faithful rules implemented:
   core sections to free the robot. Ten episodes of ten levels with more
   layers, more piece types, and a faster meter as you go.
 - **Puzzle** — **100 levels**, every one verified solvable within its
-  budget: a fixed cut-away layout, a budget of **drags** (one per square
-  slid) and **drops** (every drop is wild), clear *everything*, R to
-  reset. Difficulty climbs as a sawtooth — breathers between spikes —
-  through slide economy, gravity combos, crystal plowing, fortresses,
-  the wrap-around seam, and a run of picture levels (smileys, stars,
-  constellations, a certain crab).
+  exact budget of **drags** and **drops**; clear *everything*, R to
+  reset. A five-level tutorial, then difficulty and required moves rise
+  monotonically to level 100. Levels are layered digs: buried pairs
+  under stacks that must be dismantled piece by piece into gravity
+  clears. Most drops are wild; **set order** levels deal a fixed queue
+  of shapes instead (there, grabs are free). Picture levels (smileys,
+  stars, a certain crab) punctuate the climb.
 - **Time Trial** — five minutes, maximum score, core sections worth 3×.
 
 A **difficulty setting** on the main menu (easy / medium / hard) changes
@@ -103,7 +104,7 @@ pieces per level, and can be carried between devices with a **save code**
 | `js/game.js` | Modes, combos, sparks/power/magic, speed meter, HUD |
 | `js/levels.js` | Rescue sphere generator + hand-authored puzzles (solutions in comments) |
 | `js/freefable.js` | Free Fable campaign: seeded boards, model roster, robot art |
-| `js/input.js` | Keyboard (DAS repeat), gamepad, touch |
+| `js/input.js` | Keyboard, gamepad, touch |
 | `js/audio.js` | WebAudio sequencer — original techno groove + synth SFX |
 | `js/main.js` | Menus and the main loop |
 
