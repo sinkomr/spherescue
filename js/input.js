@@ -24,6 +24,9 @@ class Input {
     this.padButtons = {};
 
     window.addEventListener('keydown', (e) => {
+      // let form fields (the save-code textareas) receive keys untouched;
+      // keyup stays global so a key released after refocusing still clears
+      if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) return;
       const a = KEYMAP[e.code];
       if (a) {
         e.preventDefault();

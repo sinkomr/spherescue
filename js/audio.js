@@ -48,6 +48,11 @@ class AudioEngine {
   update() {
     if (!this.ctx || !this.enabled || !this.musicOn) return;
     const spb = 60 / this.bpm / 4; // 16th note
+    // resync after music-off or a hidden tab (rAF stops, currentTime does
+    // not) — otherwise the loop below burst-schedules the whole gap at once
+    if (this.nextStepTime < this.ctx.currentTime - 0.05) {
+      this.nextStepTime = this.ctx.currentTime + 0.05;
+    }
     while (this.nextStepTime < this.ctx.currentTime + 0.12) {
       this.scheduleStep(this.step, this.nextStepTime);
       this.step++;

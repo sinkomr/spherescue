@@ -28,9 +28,9 @@ python3 -m http.server 8000
 | Move / scroll sphere | Arrows / WASD | D-pad or stick | joystick (small pull = one step, further = faster) or swipe the sphere |
 | Drop piece | Space / Z / Enter | A | DROP button |
 | Grab & drag piece (hold) | Shift / X | B (hold) | hold GRAB + joystick |
-| Fire magic | C | X | — |
-| Reset puzzle | R | Y | — |
-| Pause | Esc / P | Start | — |
+| Fire magic | C | X | ✦ button |
+| Reset puzzle | R | Y | ↺ button |
+| Pause | Esc / P | Start | ❚❚ button |
 | Music on/off | M | — | — |
 
 ## How it works (like the original did)

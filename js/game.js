@@ -88,6 +88,7 @@ class Game {
   /* ---------------- lifecycle ---------------- */
 
   start(mode, arg = 0) {
+    this.input.consume(); // drop inputs queued while idling on the menus
     this.mode = mode;
     this.puzzleIndex = arg;
     this.score = 0;
@@ -218,9 +219,13 @@ class Game {
       if (this.paused) continue;
 
       if (this.state === 'lose' && (a.type === 'drop' || a.type === 'reset')) {
-        this.setupLevel();
-        this.state = 'play';
-        this.setMsg('');
+        if (this.mode === 'timetrial') {
+          this.start(this.mode); // fresh run: the clock and score must reset
+        } else {
+          this.setupLevel();
+          this.state = 'play';
+          this.setMsg('');
+        }
         continue;
       }
       if (this.state !== 'play') continue;
@@ -627,7 +632,10 @@ class Game {
     this.sectionsPrev = sections;
     this.updateHud();
     this.checkWin();
-    if (!this.clearing.length) this.updateChainHud(); // chain over: back to X-Count
+    if (!this.clearing.length) {
+      this.updateChainHud();   // chain over: back to X-Count
+      this.checkPuzzleStuck(); // the cascade may have spent the last move
+    }
   }
 
   /* ---------------- magic items ---------------- */
