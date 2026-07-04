@@ -58,6 +58,7 @@ class Game {
     this.state = 'idle'; // idle | play | win | lose | done
     this.paused = false;
     this.onPause = () => {};
+    this.onResume = () => {};
     this.onQuitToMenu = () => {};
     this.progress = this.loadProgress();
     this.msgTimer = 0;
@@ -66,7 +67,7 @@ class Game {
 
   loadProgress() {
     try {
-      const p = JSON.parse(localStorage.getItem('sphererescue') || '{}');
+      const p = JSON.parse(localStorage.getItem('spherescue') || '{}');
       return {
         rescueLevel: p.rescueLevel || 1,
         puzzleUnlocked: p.puzzleUnlocked || 0, puzzleDone: p.puzzleDone || [],
@@ -82,12 +83,13 @@ class Game {
     }
   }
   saveProgress() {
-    try { localStorage.setItem('sphererescue', JSON.stringify(this.progress)); } catch (e) { /* private mode */ }
+    try { localStorage.setItem('spherescue', JSON.stringify(this.progress)); } catch (e) { /* private mode */ }
   }
 
   /* ---------------- lifecycle ---------------- */
 
   start(mode, arg = 0) {
+    this.input.consume(); // drop inputs queued while idling on the menus
     this.mode = mode;
     this.puzzleIndex = arg;
     this.score = 0;
@@ -212,15 +214,22 @@ class Game {
         continue;
       }
       if (a.type === 'pause') {
-        if (this.state === 'play' && !this.paused) { this.paused = true; this.onPause(); }
+        if (this.state === 'play') {
+          this.paused = !this.paused;
+          if (this.paused) this.onPause(); else this.onResume();
+        }
         continue;
       }
       if (this.paused) continue;
 
       if (this.state === 'lose' && (a.type === 'drop' || a.type === 'reset')) {
-        this.setupLevel();
-        this.state = 'play';
-        this.setMsg('');
+        if (this.mode === 'timetrial') {
+          this.start(this.mode); // fresh run: the clock and score must reset
+        } else {
+          this.setupLevel();
+          this.state = 'play';
+          this.setMsg('');
+        }
         continue;
       }
       if (this.state !== 'play') continue;
@@ -627,7 +636,10 @@ class Game {
     this.sectionsPrev = sections;
     this.updateHud();
     this.checkWin();
-    if (!this.clearing.length) this.updateChainHud(); // chain over: back to X-Count
+    if (!this.clearing.length) {
+      this.updateChainHud();   // chain over: back to X-Count
+      this.checkPuzzleStuck(); // the cascade may have spent the last move
+    }
   }
 
   /* ---------------- magic items ---------------- */

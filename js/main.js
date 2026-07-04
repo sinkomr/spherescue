@@ -151,6 +151,7 @@
   });
 
   game.onPause = () => show('pause');
+  game.onResume = () => hideAll();
   game.onQuitToMenu = (returnTo) => {
     if (returnTo === 'puzzle') { buildPuzzleGrid(); show('puzzle-select'); }
     else if (returnTo === 'freefable') { buildFableGrid(); show('fable-select'); }
