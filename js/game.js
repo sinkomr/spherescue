@@ -994,17 +994,48 @@ class Game {
     this.drawNextPreview();
   }
 
-  /** The freed model-bot rises out of the core and hovers. */
+  /** The freed model-bot: first it peeks out of the opened core like a
+   *  porthole — just the head, looking out — then rises up to celebrate. */
   drawRelease() {
     const ctx = this.renderer.ctx, cfg = this.freeCfg;
     const R = this.renderer.R, cx = this.renderer.cx, cy = this.renderer.cy;
     const t = this.winT;
-    const rise = Math.min(1, t / 1.8);
-    const ease = 1 - Math.pow(1 - rise, 3);
-    const y = cy + R * 0.15 - ease * R * 0.75;
     const size = R * ({ instant: 0.11, haiku: 0.12, classic: 0.13, sonnet: 0.14, sonnet5: 0.15, opus: 0.17, fable: 0.2 }[cfg.family] || 0.14);
+    const PEEK = 2.0; // seconds spent looking out of the core window
+
+    if (t < PEEK) {
+      // porthole: a small round window at the core with the head peeking out
+      const wx = cx, wy = cy + R * 0.03, wr = size * 1.35;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, t / 0.4);
+      // window glow + rim
+      const glow = ctx.createRadialGradient(wx, wy, wr * 0.2, wx, wy, wr * 1.8);
+      glow.addColorStop(0, 'rgba(255,240,200,0.30)');
+      glow.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(wx, wy, wr * 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(wx, wy, wr, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.fillStyle = 'rgba(10, 8, 30, 0.85)';
+      ctx.fill();
+      // the bot sits low in the window: only the head shows, swaying as
+      // if looking around outside
+      const sway = Math.sin(t * 1.7) * wr * 0.18;
+      drawRobot(ctx, wx + sway, wy + size * 1.15, size, t * 0.6, cfg);
+      ctx.restore();
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, t / 0.4);
+      ctx.lineWidth = Math.max(2, R * 0.012);
+      ctx.strokeStyle = cfg.hue;
+      ctx.beginPath(); ctx.arc(wx, wy, wr, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    const rise = Math.min(1, (t - PEEK) / 1.6);
+    const ease = 1 - Math.pow(1 - rise, 3);
+    const y = cy + R * 0.05 - ease * R * 0.65;
     ctx.save();
-    ctx.globalAlpha = Math.min(1, t / 0.4);
     drawRobot(ctx, cx, y, size, t, cfg);
     // name plate
     ctx.font = `bold ${Math.max(15, R * 0.075)}px 'Trebuchet MS', sans-serif`;
